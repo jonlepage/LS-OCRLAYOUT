@@ -4,3 +4,7 @@ obj/
 *.suo
 .vs/
 *.pdb
+ScreenSearchOverlay.exe
+dist/
+search-history.json
+settings.json

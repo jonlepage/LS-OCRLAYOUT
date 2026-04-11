@@ -1,5 +1,7 @@
 using System.Drawing;
+using System.IO;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Interop;
 using Windows.Media.Ocr;
@@ -21,13 +23,29 @@ public partial class App : Application
     private MainWindow? _overlayWindow;
     private Forms.NotifyIcon? _trayIcon;
 
+    private const int MaxHistoryEntries = 50;
+    private const string HistoryFileName = "search-history.json";
+    private const string SettingsFileName = "settings.json";
+
     // Selected OCR languages
     internal List<Windows.Globalization.Language> SelectedOcrLanguages { get; } = [];
+
+    // Search history
+    internal List<string> SearchHistory { get; private set; } = [];
+
+    // Persistent settings
+    internal bool ZenMode { get; set; }
+    internal string BoxSize { get; set; } = "medium";
+    internal string SearchBarSize { get; set; } = "medium";
+    internal double SearchBarX { get; set; } = -1;
+    internal double SearchBarY { get; set; } = -1;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
+        LoadHistory();
+        LoadSettings();
         SetupTrayIcon();
 
         var parameters = new HwndSourceParameters("HotkeyHost")
@@ -149,6 +167,94 @@ public partial class App : Application
         _overlayWindow = new MainWindow();
         _overlayWindow.Closed += (_, _) => _overlayWindow = null;
         _overlayWindow.Show();
+    }
+
+    internal void AddToSearchHistory(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return;
+        SearchHistory.Remove(query);
+        SearchHistory.Insert(0, query);
+        if (SearchHistory.Count > MaxHistoryEntries)
+            SearchHistory.RemoveAt(SearchHistory.Count - 1);
+        SaveHistory();
+    }
+
+    private void LoadHistory()
+    {
+        try
+        {
+            var path = GetFilePath(HistoryFileName);
+            if (File.Exists(path))
+            {
+                var json = File.ReadAllText(path);
+                SearchHistory = JsonSerializer.Deserialize<List<string>>(json) ?? [];
+            }
+        }
+        catch { }
+    }
+
+    private void SaveHistory()
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(SearchHistory);
+            File.WriteAllText(GetFilePath(HistoryFileName), json);
+        }
+        catch { }
+    }
+
+    internal void SaveSettings()
+    {
+        try
+        {
+            var data = new Dictionary<string, string>
+            {
+                ["zenMode"] = ZenMode.ToString(),
+                ["boxSize"] = BoxSize,
+                ["searchBarSize"] = SearchBarSize,
+                ["searchBarX"] = SearchBarX.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["searchBarY"] = SearchBarY.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            };
+            var json = JsonSerializer.Serialize(data);
+            File.WriteAllText(GetFilePath(SettingsFileName), json);
+        }
+        catch { }
+    }
+
+    private void LoadSettings()
+    {
+        try
+        {
+            var path = GetFilePath(SettingsFileName);
+            if (File.Exists(path))
+            {
+                var json = File.ReadAllText(path);
+                var data = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+                if (data != null)
+                {
+                    if (data.TryGetValue("zenMode", out var zen))
+                        ZenMode = bool.TryParse(zen, out var v) && v;
+                    if (data.TryGetValue("boxSize", out var size))
+                        BoxSize = size;
+                    if (data.TryGetValue("searchBarSize", out var sbSize))
+                        SearchBarSize = sbSize;
+                    if (data.TryGetValue("searchBarX", out var sx) &&
+                        double.TryParse(sx, System.Globalization.CultureInfo.InvariantCulture, out var parsedX))
+                        SearchBarX = parsedX;
+                    if (data.TryGetValue("searchBarY", out var sy) &&
+                        double.TryParse(sy, System.Globalization.CultureInfo.InvariantCulture, out var parsedY))
+                        SearchBarY = parsedY;
+                }
+            }
+        }
+        catch { }
+    }
+
+    private static string GetFilePath(string fileName)
+    {
+        var dir = Path.GetDirectoryName(Environment.ProcessPath)
+                  ?? AppDomain.CurrentDomain.BaseDirectory;
+        return Path.Combine(dir, fileName);
     }
 
     [LibraryImport("user32.dll")]
