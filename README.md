@@ -55,10 +55,14 @@ cd LS-OCRLAYOUT
 dotnet run --project ScreenSearchOverlay.csproj
 ```
 
-### Publish portable exe
-```bash
-dotnet publish ScreenSearchOverlay.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+### Build scripts
+```powershell
+.\build.ps1            # Build only, outputs to dist/
+.\build.ps1 -Run       # Build + run
+.\build.ps1 -Release   # Build + create GitHub release
 ```
+
+Version is managed in `ScreenSearchOverlay.csproj` (`<Version>` tag).
 
 ## Usage
 

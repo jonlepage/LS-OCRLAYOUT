@@ -1,0 +1,10 @@
+{
+  "name": "screen-search-overlay",
+  "version": "1.2.0",
+  "private": true,
+  "scripts": {
+    "build": "powershell -ExecutionPolicy Bypass -File build.ps1",
+    "start": "powershell -ExecutionPolicy Bypass -File build.ps1 -Run",
+    "release": "powershell -ExecutionPolicy Bypass -File build.ps1 -Release"
+  }
+}
