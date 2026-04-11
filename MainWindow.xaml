@@ -42,12 +42,6 @@
                          BorderThickness="0"
                          TextChanged="SearchBox_TextChanged"
                          VerticalContentAlignment="Center"/>
-                <TextBlock x:Name="CountLabel"
-                           FontSize="14"
-                           VerticalAlignment="Center"
-                           Foreground="#AAffffff"
-                           Margin="10,0,0,0"
-                           Text=""/>
             </StackPanel>
         </Border>
 

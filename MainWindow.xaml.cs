@@ -86,10 +86,62 @@ public partial class MainWindow : Window
         }
     }
 
+    private static Bitmap EnhanceForOcr(Bitmap source)
+    {
+        var width = source.Width;
+        var height = source.Height;
+        var enhanced = new Bitmap(width, height);
+
+        // Lock bits for fast pixel access
+        var srcData = source.LockBits(
+            new System.Drawing.Rectangle(0, 0, width, height),
+            System.Drawing.Imaging.ImageLockMode.ReadOnly,
+            System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        var dstData = enhanced.LockBits(
+            new System.Drawing.Rectangle(0, 0, width, height),
+            System.Drawing.Imaging.ImageLockMode.WriteOnly,
+            System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+
+        int bytes = Math.Abs(srcData.Stride) * height;
+        var srcPixels = new byte[bytes];
+        var dstPixels = new byte[bytes];
+        Marshal.Copy(srcData.Scan0, srcPixels, 0, bytes);
+
+        // Pass 1: find min/max luminance for histogram stretch
+        byte min = 255, max = 0;
+        for (int i = 0; i < bytes; i += 4)
+        {
+            byte gray = (byte)(srcPixels[i] * 0.114 + srcPixels[i + 1] * 0.587 + srcPixels[i + 2] * 0.299);
+            if (gray < min) min = gray;
+            if (gray > max) max = gray;
+        }
+
+        // Pass 2: convert to grayscale + stretch contrast
+        float range = max - min;
+        if (range < 1) range = 1;
+
+        for (int i = 0; i < bytes; i += 4)
+        {
+            byte gray = (byte)(srcPixels[i] * 0.114 + srcPixels[i + 1] * 0.587 + srcPixels[i + 2] * 0.299);
+            byte stretched = (byte)((gray - min) / range * 255);
+            dstPixels[i] = stretched;     // B
+            dstPixels[i + 1] = stretched; // G
+            dstPixels[i + 2] = stretched; // R
+            dstPixels[i + 3] = 255;       // A
+        }
+
+        Marshal.Copy(dstPixels, 0, dstData.Scan0, bytes);
+        source.UnlockBits(srcData);
+        enhanced.UnlockBits(dstData);
+
+        return enhanced;
+    }
+
     private async Task RunOcrAsync(Bitmap screenshot)
     {
+        using var enhanced = EnhanceForOcr(screenshot);
         using var memStream = new MemoryStream();
-        screenshot.Save(memStream, System.Drawing.Imaging.ImageFormat.Bmp);
+        enhanced.Save(memStream, System.Drawing.Imaging.ImageFormat.Bmp);
         memStream.Seek(0, SeekOrigin.Begin);
 
         using var stream = new InMemoryRandomAccessStream();
@@ -106,28 +158,61 @@ public partial class MainWindow : Window
         var softwareBitmap = await decoder.GetSoftwareBitmapAsync(
             BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
 
-        var engine = OcrEngine.TryCreateFromUserProfileLanguages();
-        if (engine == null) return;
-
-        var result = await engine.RecognizeAsync(softwareBitmap);
-
         var scaleX = ActualWidth / softwareBitmap.PixelWidth;
         var scaleY = ActualHeight / softwareBitmap.PixelHeight;
 
         _ocrWords.Clear();
-        foreach (var line in result.Lines)
+
+        var app = (App)System.Windows.Application.Current;
+        var languages = app.SelectedOcrLanguages;
+
+        // Run OCR for each selected language in parallel
+        var tasks = new List<Task<OcrResult>>();
+        foreach (var lang in languages)
         {
-            foreach (var word in line.Words)
+            var engine = OcrEngine.TryCreateFromLanguage(lang);
+            if (engine != null)
+                tasks.Add(engine.RecognizeAsync(softwareBitmap).AsTask());
+        }
+
+        if (tasks.Count == 0) return;
+
+        var results = await Task.WhenAll(tasks);
+
+        // Merge results from all languages, deduplicate by position
+        foreach (var result in results)
+        {
+            foreach (var line in result.Lines)
             {
-                _ocrWords.Add(new OcrWordInfo
+                foreach (var word in line.Words)
                 {
-                    Text = word.Text,
-                    Bounds = new Rect(
+                    var bounds = new Rect(
                         word.BoundingRect.X * scaleX,
                         word.BoundingRect.Y * scaleY,
                         word.BoundingRect.Width * scaleX,
-                        word.BoundingRect.Height * scaleY)
-                });
+                        word.BoundingRect.Height * scaleY);
+
+                    // Skip if we already have a word at roughly the same position
+                    bool duplicate = false;
+                    foreach (var existing in _ocrWords)
+                    {
+                        if (Math.Abs(existing.Bounds.X - bounds.X) < 5 &&
+                            Math.Abs(existing.Bounds.Y - bounds.Y) < 5)
+                        {
+                            duplicate = true;
+                            break;
+                        }
+                    }
+
+                    if (!duplicate)
+                    {
+                        _ocrWords.Add(new OcrWordInfo
+                        {
+                            Text = word.Text,
+                            Bounds = bounds
+                        });
+                    }
+                }
             }
         }
     }
@@ -139,7 +224,6 @@ public partial class MainWindow : Window
         var query = SearchBox.Text.Trim();
         if (string.IsNullOrEmpty(query))
         {
-            CountLabel.Text = "";
             BottomCountLabel.Text = "";
             return;
         }
@@ -165,7 +249,6 @@ public partial class MainWindow : Window
         }
 
         var text = matchCount > 0 ? $"{matchCount} match{(matchCount > 1 ? "es" : "")}" : "no match";
-        CountLabel.Text = text;
         BottomCountLabel.Text = text;
     }
 

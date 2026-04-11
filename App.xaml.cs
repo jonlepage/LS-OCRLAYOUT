@@ -2,6 +2,7 @@ using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
+using Windows.Media.Ocr;
 using Application = System.Windows.Application;
 using Forms = System.Windows.Forms;
 
@@ -19,6 +20,9 @@ public partial class App : Application
     private HwndSource? _hwndSource;
     private MainWindow? _overlayWindow;
     private Forms.NotifyIcon? _trayIcon;
+
+    // Selected OCR languages
+    internal List<Windows.Globalization.Language> SelectedOcrLanguages { get; } = [];
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -69,6 +73,26 @@ public partial class App : Application
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Ctrl+Alt+F pour chercher").Enabled = false;
         menu.Items.Add(new Forms.ToolStripSeparator());
+
+        // OCR Languages submenu
+        var langMenu = new Forms.ToolStripMenuItem("OCR Languages");
+        var availableLanguages = OcrEngine.AvailableRecognizerLanguages;
+
+        foreach (var lang in availableLanguages)
+        {
+            var item = new Forms.ToolStripMenuItem(lang.DisplayName)
+            {
+                CheckOnClick = true,
+                Checked = true,
+                Tag = lang
+            };
+            item.CheckedChanged += (_, _) => UpdateSelectedLanguages(langMenu);
+            langMenu.DropDownItems.Add(item);
+            SelectedOcrLanguages.Add(lang);
+        }
+
+        menu.Items.Add(langMenu);
+        menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Quitter", null, (_, _) =>
         {
             _trayIcon.Visible = false;
@@ -77,6 +101,16 @@ public partial class App : Application
 
         _trayIcon.ContextMenuStrip = menu;
         _trayIcon.DoubleClick += (_, _) => ShowOverlay();
+    }
+
+    private void UpdateSelectedLanguages(Forms.ToolStripMenuItem langMenu)
+    {
+        SelectedOcrLanguages.Clear();
+        foreach (Forms.ToolStripMenuItem item in langMenu.DropDownItems)
+        {
+            if (item.Checked && item.Tag is Windows.Globalization.Language lang)
+                SelectedOcrLanguages.Add(lang);
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)
