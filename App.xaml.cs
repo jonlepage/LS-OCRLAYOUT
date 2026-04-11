@@ -164,7 +164,12 @@ public partial class App : Application
         if (_overlayWindow is { IsVisible: true })
             return;
 
-        _overlayWindow = new MainWindow();
+        // Capture screenshot BEFORE creating the window — no delay needed
+        var screenInfo = ScreenSearchOverlay.MainWindow.GetCurrentScreenInfo();
+        var screenshot = ScreenSearchOverlay.MainWindow.CaptureScreen(
+            screenInfo.X, screenInfo.Y, screenInfo.Width, screenInfo.Height);
+
+        _overlayWindow = new ScreenSearchOverlay.MainWindow(screenshot, screenInfo);
         _overlayWindow.Closed += (_, _) => _overlayWindow = null;
         _overlayWindow.Show();
     }

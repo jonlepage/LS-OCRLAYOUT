@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
@@ -10,10 +11,8 @@ using System.Windows.Media.Animation;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 using System.Windows.Media.Imaging;
 using Windows.Media.Ocr;
-using Windows.Storage.Streams;
 using BitmapAlphaMode = Windows.Graphics.Imaging.BitmapAlphaMode;
 using BitmapPixelFormat = Windows.Graphics.Imaging.BitmapPixelFormat;
-using WinRtBitmapDecoder = Windows.Graphics.Imaging.BitmapDecoder;
 
 namespace ScreenSearchOverlay;
 
@@ -23,56 +22,54 @@ public partial class MainWindow : Window
     private int _historyIndex = -1;
     private bool _isDragging;
     private System.Windows.Point _dragOffset;
+    private readonly Bitmap _screenshot;
+    private readonly ScreenInfo _screenInfo;
 
-    public MainWindow()
+    public MainWindow(Bitmap screenshot, ScreenInfo screenInfo)
     {
+        _screenshot = screenshot;
+        _screenInfo = screenInfo;
+
         InitializeComponent();
+
+        // Position window and set image before showing
+        Left = screenInfo.X;
+        Top = screenInfo.Y;
+        Width = screenInfo.Width;
+        Height = screenInfo.Height;
+        ScreenshotImage.Source = ConvertToWpfBitmap(screenshot);
+
+        // Apply search bar size and position before render
+        ApplySearchBarSize();
+
         Loaded += MainWindow_Loaded;
     }
 
-    private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    internal static ScreenInfo GetCurrentScreenInfo()
     {
-        // Hide window briefly to take a clean screenshot
-        Opacity = 0;
-        await Task.Delay(150);
-
-        // Get the screen where the mouse cursor is
         GetCursorPos(out var cursorPos);
         var hMonitor = MonitorFromPoint(cursorPos, MONITOR_DEFAULTTONEAREST);
         var monitorInfo = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
         GetMonitorInfo(hMonitor, ref monitorInfo);
+        var r = monitorInfo.rcMonitor;
+        return new ScreenInfo(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top);
+    }
 
-        var screenBounds = monitorInfo.rcMonitor;
-        int screenX = screenBounds.Left;
-        int screenY = screenBounds.Top;
-        int screenW = screenBounds.Right - screenBounds.Left;
-        int screenH = screenBounds.Bottom - screenBounds.Top;
-
-        // Position this window exactly on that monitor
-        Left = screenX;
-        Top = screenY;
-        Width = screenW;
-        Height = screenH;
-
-        var screenshot = CaptureScreen(screenX, screenY, screenW, screenH);
-        ScreenshotImage.Source = ConvertToWpfBitmap(screenshot);
-
-        Opacity = 1;
-
-        // Run OCR
-        await RunOcrAsync(screenshot);
-
-        // Apply saved search bar size and position
-        ApplySearchBarSize();
+    private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        // Apply position after layout so ActualWidth is available
         ApplySearchBarPosition();
 
-        // Force focus on search box
+        // Focus search box
         Activate();
         SearchBox.Focus();
         Keyboard.Focus(SearchBox);
+
+        // Run OCR in background
+        await RunOcrAsync(_screenshot);
     }
 
-    private static Bitmap CaptureScreen(int x, int y, int width, int height)
+    internal static Bitmap CaptureScreen(int x, int y, int width, int height)
     {
         var bmp = new Bitmap(width, height);
         using var g = Graphics.FromImage(bmp);
@@ -85,9 +82,11 @@ public partial class MainWindow : Window
         var hBitmap = bitmap.GetHbitmap();
         try
         {
-            return System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
+            var source = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
                 hBitmap, IntPtr.Zero, Int32Rect.Empty,
                 BitmapSizeOptions.FromEmptyOptions());
+            source.Freeze(); // GPU-optimized, cross-thread safe
+            return source;
         }
         finally
         {
@@ -146,26 +145,31 @@ public partial class MainWindow : Window
         return enhanced;
     }
 
+    private static Windows.Graphics.Imaging.SoftwareBitmap BitmapToSoftwareBitmap(Bitmap source)
+    {
+        var width = source.Width;
+        var height = source.Height;
+        var data = source.LockBits(
+            new System.Drawing.Rectangle(0, 0, width, height),
+            System.Drawing.Imaging.ImageLockMode.ReadOnly,
+            System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+
+        var bytes = Math.Abs(data.Stride) * height;
+        var pixels = new byte[bytes];
+        Marshal.Copy(data.Scan0, pixels, 0, bytes);
+        source.UnlockBits(data);
+
+        var sb = new Windows.Graphics.Imaging.SoftwareBitmap(
+            BitmapPixelFormat.Bgra8, width, height, BitmapAlphaMode.Premultiplied);
+        sb.CopyFromBuffer(pixels.AsBuffer());
+        return sb;
+    }
+
     private async Task RunOcrAsync(Bitmap screenshot)
     {
+        // Enhance + convert directly to SoftwareBitmap (no BMP encode/decode)
         using var enhanced = EnhanceForOcr(screenshot);
-        using var memStream = new MemoryStream();
-        enhanced.Save(memStream, System.Drawing.Imaging.ImageFormat.Bmp);
-        memStream.Seek(0, SeekOrigin.Begin);
-
-        using var stream = new InMemoryRandomAccessStream();
-        using (var writer = new DataWriter(stream.GetOutputStreamAt(0)))
-        {
-            writer.WriteBytes(memStream.ToArray());
-            await writer.StoreAsync();
-            await writer.FlushAsync();
-            writer.DetachStream();
-        }
-        stream.Seek(0);
-
-        var decoder = await WinRtBitmapDecoder.CreateAsync(stream);
-        var softwareBitmap = await decoder.GetSoftwareBitmapAsync(
-            BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
+        using var softwareBitmap = BitmapToSoftwareBitmap(enhanced);
 
         var scaleX = ActualWidth / softwareBitmap.PixelWidth;
         var scaleY = ActualHeight / softwareBitmap.PixelHeight;
@@ -678,6 +682,8 @@ public partial class MainWindow : Window
 
     #endregion
 }
+
+public record ScreenInfo(int X, int Y, int Width, int Height);
 
 internal class OcrWordInfo
 {
