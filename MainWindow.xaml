@@ -51,12 +51,14 @@
             </StackPanel>
         </Border>
 
-        <!-- Help text at bottom -->
-        <TextBlock HorizontalAlignment="Center"
+        <!-- Match count at bottom -->
+        <TextBlock x:Name="BottomCountLabel"
+                   HorizontalAlignment="Center"
                    VerticalAlignment="Bottom"
                    Margin="0,0,0,20"
-                   Foreground="#88ffffff"
-                   FontSize="13"
-                   Text="Escape pour fermer  |  Win+F pour relancer  |  Tapez pour chercher"/>
+                   Foreground="#AAffff00"
+                   FontSize="15"
+                   FontWeight="SemiBold"
+                   Text=""/>
     </Grid>
 </Window>

@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 using System.Windows.Media.Imaging;
 using Windows.Media.Ocr;
 using Windows.Storage.Streams;
@@ -56,8 +57,10 @@ public partial class MainWindow : Window
         // Run OCR
         await RunOcrAsync(screenshot);
 
-        // Focus search box
+        // Force focus on search box
+        Activate();
         SearchBox.Focus();
+        Keyboard.Focus(SearchBox);
     }
 
     private static Bitmap CaptureScreen(int x, int y, int width, int height)
@@ -137,6 +140,7 @@ public partial class MainWindow : Window
         if (string.IsNullOrEmpty(query))
         {
             CountLabel.Text = "";
+            BottomCountLabel.Text = "";
             return;
         }
 
@@ -147,22 +151,22 @@ public partial class MainWindow : Window
             {
                 var rect = new System.Windows.Shapes.Rectangle
                 {
-                    Width = word.Bounds.Width + 6,
-                    Height = word.Bounds.Height + 4,
-                    Fill = new SolidColorBrush(System.Windows.Media.Color.FromArgb(140, 255, 255, 0)),
-                    Stroke = new SolidColorBrush(System.Windows.Media.Color.FromArgb(200, 255, 200, 0)),
-                    StrokeThickness = 1.5,
-                    RadiusX = 3,
-                    RadiusY = 3
+                    Width = word.Bounds.Width + 8,
+                    Height = word.Bounds.Height + 6,
+                    Fill = new SolidColorBrush(System.Windows.Media.Color.FromArgb(50, 255, 255, 0)),
+                    Stroke = new SolidColorBrush(System.Windows.Media.Color.FromArgb(220, 255, 220, 0)),
+                    StrokeThickness = 2,
                 };
-                Canvas.SetLeft(rect, word.Bounds.X - 3);
-                Canvas.SetTop(rect, word.Bounds.Y - 2);
+                Canvas.SetLeft(rect, word.Bounds.X - 4);
+                Canvas.SetTop(rect, word.Bounds.Y - 3);
                 HighlightCanvas.Children.Add(rect);
                 matchCount++;
             }
         }
 
-        CountLabel.Text = matchCount > 0 ? $"{matchCount} trouvé(s)" : "aucun résultat";
+        var text = matchCount > 0 ? $"{matchCount} match{(matchCount > 1 ? "es" : "")}" : "no match";
+        CountLabel.Text = text;
+        BottomCountLabel.Text = text;
     }
 
     private void Window_KeyDown(object sender, KeyEventArgs e)
