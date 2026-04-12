@@ -50,11 +50,22 @@ Write-Host "      dist/$exeName ($size MB)" -ForegroundColor Green
 if ($Release) {
     Write-Host "[4/4] Creating GitHub release v$version..." -ForegroundColor Yellow
 
-    # Check if release already exists
-    $existing = gh release view "v$version" 2>&1
-    if ($LASTEXITCODE -eq 0) {
+    # Check if release already exists. PowerShell 7.4+ promotes native non-zero
+    # exits to terminating errors via $PSNativeCommandUseErrorActionPreference,
+    # so we wrap gh in try/catch and only inspect $LASTEXITCODE.
+    $releaseExists = $false
+    try {
+        $null = gh release view "v$version" 2>&1
+        $releaseExists = ($LASTEXITCODE -eq 0)
+    } catch {
+        $releaseExists = $false
+    }
+    $global:LASTEXITCODE = 0
+
+    if ($releaseExists) {
         Write-Host "      Deleting existing v$version..." -ForegroundColor DarkYellow
         gh release delete "v$version" --yes
+        if ($LASTEXITCODE -ne 0) { throw "Failed to delete existing release" }
     }
 
     gh release create "v$version" (Join-Path $distDir $exeName) `
