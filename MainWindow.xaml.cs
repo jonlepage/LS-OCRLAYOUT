@@ -28,14 +28,20 @@ public partial class MainWindow : Window
     // ─── Scroll state machine ────────────────────────────────────────────
     // Idle:      content visible, click-through OFF, search bar interactive
     // Scrolling: content hidden, click-through ON, debounce armed, hook active
-    private const int ScrollDebounceMs = 500;
+    private const int ScrollDebounceMs = 400;
+    private const int ScrollSettleMs = 50;
     private readonly System.Threading.Timer _scrollDebounce;
     private readonly LowLevelMouseHook _mouseHook = new();
     private bool _scrollSessionActive;
-    // Incremented on every wheel (whether received via PreviewMouseWheel or
-    // detected by the global hook). Used to abort a stale refresh when the
-    // user resumes scrolling.
-    private long _wheelGeneration;
+    // All wheel state lives on the UI thread, so plain int suffices.
+    // Incremented on every wheel (PreviewMouseWheel or hook); OnScrollIdle
+    // captures it and aborts if it changes during the refresh.
+    private int _wheelGeneration;
+
+    // Diagnostic log is gated by [Conditional("LS_DEBUG_LOG")] on the Log
+    // method. Without that symbol defined, the C# compiler removes the call
+    // site entirely — including the interpolated string allocation. Enable
+    // by adding <DefineConstants>LS_DEBUG_LOG</DefineConstants> to the csproj.
 
     public MainWindow(Bitmap screenshot, ScreenInfo screenInfo)
     {
@@ -203,12 +209,21 @@ public partial class MainWindow : Window
 
     private async Task RunOcrAsync(Bitmap screenshot)
     {
-        // Enhance + convert directly to SoftwareBitmap (no BMP encode/decode)
-        using var enhanced = EnhanceForOcr(screenshot);
-        using var softwareBitmap = BitmapToSoftwareBitmap(enhanced);
+        // Capture UI-bound dimensions before going to the background thread
+        var actualW = ActualWidth;
+        var actualH = ActualHeight;
 
-        var scaleX = ActualWidth / softwareBitmap.PixelWidth;
-        var scaleY = ActualHeight / softwareBitmap.PixelHeight;
+        // Enhance + convert to SoftwareBitmap entirely off the UI thread —
+        // these are the most expensive sync steps in the OCR pipeline (full
+        // double pass over every pixel + a copy into a Windows.Graphics buffer).
+        using var softwareBitmap = await Task.Run(() =>
+        {
+            using var enhanced = EnhanceForOcr(screenshot);
+            return BitmapToSoftwareBitmap(enhanced);
+        });
+
+        var scaleX = actualW / softwareBitmap.PixelWidth;
+        var scaleY = actualH / softwareBitmap.PixelHeight;
 
         _ocrWords.Clear();
 
@@ -679,6 +694,9 @@ public partial class MainWindow : Window
     {
         try { _mouseHook.Dispose(); } catch { }
         try { _scrollDebounce.Dispose(); } catch { }
+        // Release the GDI bitmap — otherwise the handle leaks until the GC
+        // collects the Window (which can be much later).
+        try { _screenshot?.Dispose(); } catch { }
         // Make sure we don't leave the window click-through if it somehow lingers
         try { SetClickThrough(false); } catch { }
     }
@@ -710,7 +728,7 @@ public partial class MainWindow : Window
         if (!_scrollSessionActive) return;
         if (!IsCursorOverThisWindow()) return;
 
-        System.Threading.Interlocked.Increment(ref _wheelGeneration);
+        _wheelGeneration++;
         try { _scrollDebounce.Change(ScrollDebounceMs, System.Threading.Timeout.Infinite); }
         catch (Exception ex) { Log($"hook timer-change EX: {ex}"); }
     }
@@ -719,7 +737,7 @@ public partial class MainWindow : Window
     {
         Log($"session BEGIN delta={firstDelta}");
         _scrollSessionActive = true;
-        System.Threading.Interlocked.Increment(ref _wheelGeneration);
+        _wheelGeneration++;
 
         OverlayContent.Visibility = Visibility.Hidden;
 
@@ -738,24 +756,45 @@ public partial class MainWindow : Window
     {
         if (!_scrollSessionActive) return;
 
-        var myGen = System.Threading.Interlocked.Read(ref _wheelGeneration);
+        var myGen = _wheelGeneration;
         Log($"idle enter gen={myGen}");
 
         try
         {
             // Let smooth-scroll animations settle
-            await Task.Delay(90);
-            if (System.Threading.Interlocked.Read(ref _wheelGeneration) != myGen)
-            { Log("idle: aborted (settle)"); return; }
+            await Task.Delay(ScrollSettleMs);
+            if (_wheelGeneration != myGen) { Log("idle: aborted (settle)"); return; }
 
+            // Capture + WPF bitmap conversion happen on a background thread so
+            // the UI thread stays responsive (no freeze when overlay returns).
+            // ScreenInfo coords are captured before the closure to keep the
+            // lambda allocation-free of `this` field accesses.
+            var sx = _screenInfo.X;
+            var sy = _screenInfo.Y;
+            var sw = _screenInfo.Width;
+            var sh = _screenInfo.Height;
+            var (newBmp, newSrc) = await Task.Run(() =>
+            {
+                var bmp = CaptureScreen(sx, sy, sw, sh);
+                var src = ConvertToWpfBitmap(bmp);
+                return (bmp, src);
+            });
+
+            if (_wheelGeneration != myGen)
+            {
+                // User started scrolling again — throw away the work
+                newBmp.Dispose();
+                Log("idle: aborted (capture)");
+                return;
+            }
+
+            // Atomic swap on UI thread + dispose the previous frame to keep
+            // GDI handle / native memory usage flat across many sessions.
             HighlightCanvas.Children.Clear();
-            var fresh = CaptureScreen(
-                _screenInfo.X, _screenInfo.Y, _screenInfo.Width, _screenInfo.Height);
-            _screenshot = fresh;
-            ScreenshotImage.Source = ConvertToWpfBitmap(fresh);
-
-            if (System.Threading.Interlocked.Read(ref _wheelGeneration) != myGen)
-            { Log("idle: aborted (capture)"); return; }
+            var oldBmp = _screenshot;
+            _screenshot = newBmp;
+            ScreenshotImage.Source = newSrc;
+            oldBmp?.Dispose();
 
             // ── Transition Scrolling → Idle ──
             SetClickThrough(false);
@@ -763,9 +802,10 @@ public partial class MainWindow : Window
             _scrollSessionActive = false;
             Log("session END");
 
-            await RunOcrAsync(fresh);
-            if (System.Threading.Interlocked.Read(ref _wheelGeneration) != myGen)
-            { Log("OCR: aborted (new session)"); return; }
+            // OCR is expensive (enhance + convert + recognize). Runs entirely
+            // off the UI thread; we only touch UI again to apply highlights.
+            await RunOcrAsync(newBmp);
+            if (_wheelGeneration != myGen) { Log("OCR: aborted (new session)"); return; }
             SearchBox_TextChanged(SearchBox, null!);
         }
         catch (Exception ex)
@@ -781,6 +821,7 @@ public partial class MainWindow : Window
     private static readonly string _logPath = System.IO.Path.Combine(
         System.IO.Path.GetTempPath(), "ls-ocrlayout-scroll.log");
 
+    [System.Diagnostics.Conditional("LS_DEBUG_LOG")]
     private static void Log(string message)
     {
         try
