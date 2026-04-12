@@ -1,91 +1,77 @@
 # ScreenSearchOverlay
 
-A lightweight Windows overlay that captures your screen, runs OCR, and lets you search for any visible text in real-time. Think Ctrl+F, but for everything on your screen.
+Press **Ctrl+Alt+F**, search any text visible on screen with OCR, click to copy. Like Ctrl+F for the whole screen.
 
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%2F11-blue)
 ![.NET 10](https://img.shields.io/badge/.NET-10.0-purple)
 
 [![Preview](preview.jpg)](preview.jpg)
 
-## How it works
+## Shortcuts
 
-1. Press **Ctrl+Alt+F** to capture the screen under your mouse cursor
-2. Type in the search bar to highlight matching text
-3. Click any highlighted word to copy it to clipboard
-4. Press **Escape** to close the overlay
+| | |
+|---|---|
+| `Ctrl+Alt+F` | Open overlay (global hotkey) |
+| Type | Highlight matching text |
+| Click match | Copy word to clipboard |
+| `Mouse wheel` | Scroll the app underneath; overlay re-captures when you stop |
+| `Escape` / `Right-click` | Close overlay |
+| `↑` / `↓` | Search history |
+| `Enter` | Save current search to history |
+| Drag search bar | Move it (position persisted) |
 
-The app runs in the system tray and waits for the hotkey.
+Right-click inside the search box itself still opens the native paste menu.
 
 ## Features
 
-### Core
-- **OCR-powered screen search** using built-in Windows OCR (`Windows.Media.Ocr`)
-- **Single monitor capture** - captures only the screen where your mouse cursor is
-- **Real-time highlighting** with fade-in animation as you type
-- **Click to copy** - click any highlighted word to copy it to clipboard (green flash confirms)
-- **Regex search** - toggle the `.*` button to switch to regex matching
+- **OCR search** — `Windows.Media.Ocr`, multi-language (pick from tray icon)
+- **Scroll-through** — wheel anywhere on the overlay scrolls the app below natively (works with Chromium/Electron). Overlay reappears with a fresh capture when you stop.
+- **Regex** — toggle `.*` button
+- **Copy all / copy matched** — hamburger menu
+- **Zen mode**, **highlight size**, **search bar size** — hamburger menu, persisted
 
-### Search bar
-- **Drag & drop** - move the search bar anywhere on screen, position is remembered
-- **Resizable** - choose between large / medium / small / tiny scale via the hamburger menu
-- **Search history** - press Arrow Up/Down to cycle through previous searches (persisted to disk)
+## Install
 
-### Menu (hamburger button)
-- **Copy all screen text** - copies all OCR-detected text to clipboard
-- **Copy highlighted text** - copies only the matched words to clipboard
-- **Clear history** - wipes saved search history
-- **Zen mode** - subtle white/gray highlights instead of yellow, for a less distracting look
-- **Highlight size** - large / medium / small padding around matched words
-- **Search bar size** - scales the entire search bar UI
+Download `ScreenSearchOverlay.exe` from the [latest release](../../releases/latest). Self-contained, portable.
 
-### Settings
-- **Multi-language OCR** - right-click the tray icon to select which OCR languages to use (all installed languages are enabled by default)
-- **Persistent settings** - zen mode, highlight size, search bar size, and search bar position are saved to `settings.json`
-- **Persistent history** - search history is saved to `search-history.json` (max 50 entries)
+## Build
 
-## Installation
-
-### Portable (recommended)
-Download `ScreenSearchOverlay.exe` from the [latest release](../../releases/latest). Self-contained, no dependencies needed.
-
-### Build from source
-```bash
-git clone https://github.com/jonlepage/LS-OCRLAYOUT.git
-cd LS-OCRLAYOUT
-dotnet run --project ScreenSearchOverlay.csproj
-```
-
-### Build scripts
 ```powershell
-.\build.ps1            # Build only, outputs to dist/
-.\build.ps1 -Run       # Build + run
-.\build.ps1 -Release   # Build + create GitHub release
+.\build.ps1 -Run       # build + launch
+.\build.ps1            # build to dist/
+.\build.ps1 -Release   # build + GitHub release
 ```
 
-Version is managed in `ScreenSearchOverlay.csproj` (`<Version>` tag).
+Version lives in `ScreenSearchOverlay.csproj` (`<Version>`).
 
-## Usage
+To enable diagnostic logging at `%TEMP%\ls-ocrlayout-scroll.log`, add `<DefineConstants>LS_DEBUG_LOG</DefineConstants>` to the csproj. Off by default — `[Conditional]` strips the calls completely in release.
 
-| Action | Shortcut |
-|--------|----------|
-| Open overlay | `Ctrl+Alt+F` |
-| Close overlay | `Escape` |
-| Search | Type in the search bar |
-| Toggle regex | Click `.*` button |
-| Copy a word | Click on a highlighted word |
-| Previous search | `Arrow Up` |
-| Next search | `Arrow Down` |
-| Confirm search to history | `Enter` |
-| Move search bar | Drag the search bar |
-| Quit app | Right-click tray icon > Quit |
+## Code layout
+
+`MainWindow` is split into partial files by concern:
+
+| File | Responsibility |
+|---|---|
+| `MainWindow.xaml.cs` | ctor, lifecycle, fields, log |
+| `MainWindow.Scroll.cs` | scroll state machine + global hook handler |
+| `MainWindow.Capture.cs` | screen capture, `WriteableBitmap` swap, OCR pipeline + cache |
+| `MainWindow.Search.cs` | search box, regex, hamburger menu, highlights |
+| `MainWindow.SearchBar.cs` | drag, position, size, key nav, close handlers |
+| `MainWindow.NativeInterop.cs` | Win32 P/Invoke + helpers (`SetClickThrough`, `InjectMouseWheel`, …) |
+| `LowLevelMouseHook.cs` | `WH_MOUSE_LL` on a dedicated thread (per MSDN guidance — UI-thread hooks risk silent detachment past `LowLevelHooksTimeout`) |
+| `App.xaml.cs` | global hotkey, tray icon, settings/history persistence |
+
+### Scroll-through architecture
+
+State machine `Idle ↔ Scrolling`. On the first wheel, the window goes `WS_EX_TRANSPARENT` (click-through Win32) and injects the wheel via `SendInput` so it lands on the app below. Subsequent wheels go natively to that app — Chromium-friendly because we never use synthetic `WM_MOUSEWHEEL`. A `WH_MOUSE_LL` hook on a dedicated thread keeps the debounce alive while we don't receive any events. After 400 ms of wheel silence: re-capture, refresh OCR, restore the overlay.
+
+## Files written
+
+- `settings.json` — zen mode, highlight size, search bar size & position
+- `search-history.json` — last 50 searches
+
+Both live next to the .exe.
 
 ## Requirements
 
-- Windows 10 (build 19041+) or Windows 11
-- At least one OCR language pack installed (English and your system language are typically pre-installed)
-
-## Tech stack
-
-- C# / WPF / .NET 10
-- `Windows.Media.Ocr` (built-in, no external dependencies)
-- `System.Windows.Forms.NotifyIcon` for system tray
+Windows 10 build 19041+ or Windows 11. At least one OCR language pack (your system language is usually pre-installed).
