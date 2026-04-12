@@ -7,17 +7,27 @@
         Topmost="True"
         WindowState="Normal"
         ShowInTaskbar="False"
-        KeyDown="Window_KeyDown">
+        KeyDown="Window_KeyDown"
+        PreviewMouseWheel="Window_PreviewMouseWheel"
+        Closed="Window_Closed">
 
     <Grid x:Name="RootGrid">
-        <!-- Screenshot as background -->
-        <Image x:Name="ScreenshotImage" Stretch="Fill" />
+        <!-- Event catcher: near-invisible (1/255 alpha) but non-zero so the
+             Raw Input Thread keeps delivering wheel events even when
+             OverlayContent is hidden. -->
+        <Rectangle Fill="#01000000" />
 
-        <!-- Semi-transparent dark overlay -->
-        <Rectangle Fill="#44000000" />
+        <!-- Everything that should disappear while the user scrolls -->
+        <Grid x:Name="OverlayContent">
+            <!-- Screenshot as background -->
+            <Image x:Name="ScreenshotImage" Stretch="Fill" />
 
-        <!-- Canvas for highlight rectangles -->
-        <Canvas x:Name="HighlightCanvas" />
+            <!-- Semi-transparent dark overlay -->
+            <Rectangle Fill="#44000000" />
+
+            <!-- Canvas for highlight rectangles -->
+            <Canvas x:Name="HighlightCanvas" />
+        </Grid>
 
         <!-- Search bar at top center -->
         <Border x:Name="SearchBarBorder"

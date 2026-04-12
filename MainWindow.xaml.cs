@@ -22,8 +22,20 @@ public partial class MainWindow : Window
     private int _historyIndex = -1;
     private bool _isDragging;
     private System.Windows.Point _dragOffset;
-    private readonly Bitmap _screenshot;
+    private Bitmap _screenshot;
     private readonly ScreenInfo _screenInfo;
+
+    // ─── Scroll state machine ────────────────────────────────────────────
+    // Idle:      content visible, click-through OFF, search bar interactive
+    // Scrolling: content hidden, click-through ON, debounce armed, hook active
+    private const int ScrollDebounceMs = 500;
+    private readonly System.Threading.Timer _scrollDebounce;
+    private readonly LowLevelMouseHook _mouseHook = new();
+    private bool _scrollSessionActive;
+    // Incremented on every wheel (whether received via PreviewMouseWheel or
+    // detected by the global hook). Used to abort a stale refresh when the
+    // user resumes scrolling.
+    private long _wheelGeneration;
 
     public MainWindow(Bitmap screenshot, ScreenInfo screenInfo)
     {
@@ -41,6 +53,30 @@ public partial class MainWindow : Window
 
         // Apply search bar size and position before render
         ApplySearchBarSize();
+
+        // Thread-pool debounce timer (immune to dispatcher starvation)
+        _scrollDebounce = new System.Threading.Timer(
+            _ =>
+            {
+                try { Dispatcher.BeginInvoke(new Action(OnScrollIdle)); }
+                catch (Exception ex) { Log($"timer-tick EX: {ex}"); }
+            },
+            null,
+            System.Threading.Timeout.Infinite,
+            System.Threading.Timeout.Infinite);
+
+        // Global hook MUST be installed on a thread that has a message loop —
+        // we install it after Loaded so the WPF dispatcher is fully running.
+        Loaded += (_, _) =>
+        {
+            try
+            {
+                _mouseHook.WheelDetected += OnGlobalWheelDetected;
+                _mouseHook.Install();
+                Log("mouse hook installed");
+            }
+            catch (Exception ex) { Log($"hook install EX: {ex}"); }
+        };
 
         Loaded += MainWindow_Loaded;
     }
@@ -639,6 +675,167 @@ public partial class MainWindow : Window
         }
     }
 
+    private void Window_Closed(object? sender, EventArgs e)
+    {
+        try { _mouseHook.Dispose(); } catch { }
+        try { _scrollDebounce.Dispose(); } catch { }
+        // Make sure we don't leave the window click-through if it somehow lingers
+        try { SetClickThrough(false); } catch { }
+    }
+
+    // ─── Scroll state machine ─────────────────────────────────────────────
+    // Idle:      content visible, click-through OFF, search bar interactive
+    // Scrolling: content hidden, click-through ON (WS_EX_TRANSPARENT), the
+    //            global mouse hook keeps the debounce alive.
+    //
+    // Why this design: Chromium/Electron ignore synthetic WM_MOUSEWHEEL. The
+    // only way to scroll them is real OS-level wheel input. By going
+    // click-through during a scroll session, the user's physical wheels go
+    // natively to the app underneath. We can't listen via WPF anymore (we
+    // don't receive events while click-through), so a global low-level hook
+    // (WH_MOUSE_LL) keeps the debounce alive.
+
+    private void Window_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        // Only entered when click-through is OFF — start of a session.
+        if (!_scrollSessionActive)
+            BeginScrollSession(e.Delta);
+        e.Handled = true;
+    }
+
+    private void OnGlobalWheelDetected()
+    {
+        // Hook fires for every wheel system-wide. Only react when the session
+        // is active AND the cursor is over our window (multi-monitor sanity).
+        if (!_scrollSessionActive) return;
+        if (!IsCursorOverThisWindow()) return;
+
+        System.Threading.Interlocked.Increment(ref _wheelGeneration);
+        try { _scrollDebounce.Change(ScrollDebounceMs, System.Threading.Timeout.Infinite); }
+        catch (Exception ex) { Log($"hook timer-change EX: {ex}"); }
+    }
+
+    private void BeginScrollSession(int firstDelta)
+    {
+        Log($"session BEGIN delta={firstDelta}");
+        _scrollSessionActive = true;
+        System.Threading.Interlocked.Increment(ref _wheelGeneration);
+
+        OverlayContent.Visibility = Visibility.Hidden;
+
+        // Click-through MUST be set BEFORE injecting, so the injected wheel
+        // hits the app below (not us → no self-loop).
+        SetClickThrough(true);
+
+        try { InjectMouseWheel(firstDelta); }
+        catch (Exception ex) { Log($"InjectMouseWheel EX: {ex}"); }
+
+        try { _scrollDebounce.Change(ScrollDebounceMs, System.Threading.Timeout.Infinite); }
+        catch (Exception ex) { Log($"timer-change EX: {ex}"); }
+    }
+
+    private async void OnScrollIdle()
+    {
+        if (!_scrollSessionActive) return;
+
+        var myGen = System.Threading.Interlocked.Read(ref _wheelGeneration);
+        Log($"idle enter gen={myGen}");
+
+        try
+        {
+            // Let smooth-scroll animations settle
+            await Task.Delay(90);
+            if (System.Threading.Interlocked.Read(ref _wheelGeneration) != myGen)
+            { Log("idle: aborted (settle)"); return; }
+
+            HighlightCanvas.Children.Clear();
+            var fresh = CaptureScreen(
+                _screenInfo.X, _screenInfo.Y, _screenInfo.Width, _screenInfo.Height);
+            _screenshot = fresh;
+            ScreenshotImage.Source = ConvertToWpfBitmap(fresh);
+
+            if (System.Threading.Interlocked.Read(ref _wheelGeneration) != myGen)
+            { Log("idle: aborted (capture)"); return; }
+
+            // ── Transition Scrolling → Idle ──
+            SetClickThrough(false);
+            OverlayContent.Visibility = Visibility.Visible;
+            _scrollSessionActive = false;
+            Log("session END");
+
+            await RunOcrAsync(fresh);
+            if (System.Threading.Interlocked.Read(ref _wheelGeneration) != myGen)
+            { Log("OCR: aborted (new session)"); return; }
+            SearchBox_TextChanged(SearchBox, null!);
+        }
+        catch (Exception ex)
+        {
+            Log($"OnScrollIdle EX: {ex}");
+            // Safety net: never strand the user with a click-through invisible window
+            try { SetClickThrough(false); OverlayContent.Visibility = Visibility.Visible; } catch { }
+            _scrollSessionActive = false;
+        }
+    }
+
+    private static readonly object _logLock = new();
+    private static readonly string _logPath = System.IO.Path.Combine(
+        System.IO.Path.GetTempPath(), "ls-ocrlayout-scroll.log");
+
+    private static void Log(string message)
+    {
+        try
+        {
+            lock (_logLock)
+            {
+                System.IO.File.AppendAllText(_logPath,
+                    $"{DateTime.Now:HH:mm:ss.fff} [T{Environment.CurrentManagedThreadId:D2}] {message}\n");
+            }
+        }
+        catch { }
+    }
+
+    // ── Win32 helpers ──
+
+    private void SetClickThrough(bool enable)
+    {
+        var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero) return;
+        var ex = GetWindowLong(hwnd, GWL_EXSTYLE);
+        var newEx = enable ? (ex | WS_EX_TRANSPARENT) : (ex & ~WS_EX_TRANSPARENT);
+        SetWindowLong(hwnd, GWL_EXSTYLE, newEx);
+    }
+
+    private bool IsCursorOverThisWindow()
+    {
+        var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero) return false;
+        if (!GetWindowRect(hwnd, out var rect)) return false;
+        if (!GetCursorPos(out var p)) return false;
+        return p.X >= rect.Left && p.X < rect.Right
+            && p.Y >= rect.Top && p.Y < rect.Bottom;
+    }
+
+    private static void InjectMouseWheel(int delta)
+    {
+        var input = new INPUT
+        {
+            type = INPUT_MOUSE,
+            u = new INPUTUNION
+            {
+                mi = new MOUSEINPUT
+                {
+                    dx = 0,
+                    dy = 0,
+                    mouseData = (uint)delta,
+                    dwFlags = MOUSEEVENTF_WHEEL,
+                    time = 0,
+                    dwExtraInfo = IntPtr.Zero
+                }
+            }
+        };
+        SendInput(1, [input], Marshal.SizeOf<INPUT>());
+    }
+
     #region Native interop
 
     [LibraryImport("gdi32.dll")]
@@ -657,6 +854,68 @@ public partial class MainWindow : Window
     private static partial bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
 
     private const uint MONITOR_DEFAULTTONEAREST = 2;
+
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongW")]
+    private static partial int GetWindowLong(IntPtr hWnd, int nIndex);
+
+    [LibraryImport("user32.dll", EntryPoint = "SetWindowLongW")]
+    private static partial int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    [LibraryImport("user32.dll")]
+    private static partial uint SendInput(uint nInputs, [In] INPUT[] pInputs, int cbSize);
+
+    private const int GWL_EXSTYLE = -20;
+    private const int WS_EX_TRANSPARENT = 0x00000020;
+    private const uint INPUT_MOUSE = 0;
+    private const uint MOUSEEVENTF_WHEEL = 0x0800;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MOUSEINPUT
+    {
+        public int dx;
+        public int dy;
+        public uint mouseData;
+        public uint dwFlags;
+        public uint time;
+        public IntPtr dwExtraInfo;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct KEYBDINPUT
+    {
+        public ushort wVk;
+        public ushort wScan;
+        public uint dwFlags;
+        public uint time;
+        public IntPtr dwExtraInfo;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct HARDWAREINPUT
+    {
+        public uint uMsg;
+        public ushort wParamL;
+        public ushort wParamH;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    private struct INPUTUNION
+    {
+        [FieldOffset(0)] public MOUSEINPUT mi;
+        [FieldOffset(0)] public KEYBDINPUT ki;
+        [FieldOffset(0)] public HARDWAREINPUT hi;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct INPUT
+    {
+        public uint type;
+        public INPUTUNION u;
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct POINT
