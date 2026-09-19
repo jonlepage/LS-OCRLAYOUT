@@ -198,17 +198,22 @@ public partial class MainWindow : Window
         var scaleY = actualH / softwareBitmap.PixelHeight;
 
         _ocrWords.Clear();
+        _ocrLines.Clear();
 
         var app = (App)System.Windows.Application.Current;
         var languages = app.SelectedOcrLanguages;
 
         // Run OCR for each selected language in parallel
         var tasks = new List<Task<OcrResult>>();
+        var isCjkEngine = new List<bool>();
         foreach (var lang in languages)
         {
             var engine = OcrEngine.TryCreateFromLanguage(lang);
             if (engine != null)
+            {
                 tasks.Add(engine.RecognizeAsync(softwareBitmap).AsTask());
+                isCjkEngine.Add(OcrLineBuilder.IsCjkLanguage(lang));
+            }
         }
 
         if (tasks.Count == 0) return;
@@ -251,6 +256,10 @@ public partial class MainWindow : Window
                 }
             }
         }
-    }
 
+        // Lines feed the translation: see OcrLineBuilder
+        _ocrLines.AddRange(OcrLineBuilder.Build(
+            results.Select((result, i) => (result, isCjkEngine[i])).ToList(),
+            scaleX, scaleY));
+    }
 }

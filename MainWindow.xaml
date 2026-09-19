@@ -11,6 +11,8 @@
         PreviewMouseWheel="Window_PreviewMouseWheel"
         PreviewMouseRightButtonDown="Window_PreviewMouseRightButtonDown"
         PreviewMouseRightButtonUp="Window_PreviewMouseRightButtonUp"
+        PreviewMouseLeftButtonDown="Window_PreviewMouseLeftButtonDown"
+        PreviewMouseLeftButtonUp="Window_PreviewMouseLeftButtonUp"
         Closed="Window_Closed">
 
     <Grid x:Name="RootGrid">
@@ -24,11 +26,16 @@
             <!-- Screenshot as background -->
             <Image x:Name="ScreenshotImage" Stretch="Fill" />
 
-            <!-- Semi-transparent dark overlay -->
-            <Rectangle Fill="#44000000" />
+            <!-- Semi-transparent dark overlay (hidden in translate mode so the
+                 translated boxes blend with the real screen colors) -->
+            <Rectangle x:Name="DimRect" Fill="#44000000" />
 
             <!-- Canvas for highlight rectangles -->
             <Canvas x:Name="HighlightCanvas" />
+
+            <!-- Canvas for translated text boxes -->
+            <Canvas x:Name="TranslationCanvas"
+                    TextOptions.TextFormattingMode="Display" />
         </Grid>
 
         <!-- Search bar at top center -->
@@ -82,6 +89,18 @@
                               ToolTip="Regex search"
                               Checked="RegexToggle_Changed"
                               Unchecked="RegexToggle_Changed"/>
+                <ToggleButton x:Name="TranslateToggle"
+                              Content="文A"
+                              FontSize="13"
+                              Width="36" Height="28"
+                              Margin="6,0,0,0"
+                              VerticalAlignment="Center"
+                              Foreground="White"
+                              Background="Transparent"
+                              BorderBrush="#66FFFFFF"
+                              ToolTip="Translate screen"
+                              Checked="TranslateToggle_Changed"
+                              Unchecked="TranslateToggle_Changed"/>
             </StackPanel>
         </Border>
 

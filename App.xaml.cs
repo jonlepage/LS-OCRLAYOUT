@@ -29,6 +29,9 @@ public partial class App : Application
 
     // Selected OCR languages
     internal List<Windows.Globalization.Language> SelectedOcrLanguages { get; } = [];
+    // Language tags the user unchecked in the tray menu. The excluded set is
+    // what gets saved, so a language installed later starts enabled.
+    private readonly HashSet<string> _disabledOcrLanguages = new(StringComparer.OrdinalIgnoreCase);
 
     // Search history
     internal List<string> SearchHistory { get; private set; } = [];
@@ -39,6 +42,7 @@ public partial class App : Application
     internal string SearchBarSize { get; set; } = "medium";
     internal double SearchBarX { get; set; } = -1;
     internal double SearchBarY { get; set; } = -1;
+    internal string TranslateTarget { get; set; } = "fr";
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -98,15 +102,17 @@ public partial class App : Application
 
         foreach (var lang in availableLanguages)
         {
+            var enabled = !_disabledOcrLanguages.Contains(lang.LanguageTag);
             var item = new Forms.ToolStripMenuItem(lang.DisplayName)
             {
                 CheckOnClick = true,
-                Checked = true,
+                Checked = enabled,
                 Tag = lang
             };
             item.CheckedChanged += (_, _) => UpdateSelectedLanguages(langMenu);
             langMenu.DropDownItems.Add(item);
-            SelectedOcrLanguages.Add(lang);
+            if (enabled)
+                SelectedOcrLanguages.Add(lang);
         }
 
         menu.Items.Add(langMenu);
@@ -124,11 +130,16 @@ public partial class App : Application
     private void UpdateSelectedLanguages(Forms.ToolStripMenuItem langMenu)
     {
         SelectedOcrLanguages.Clear();
+        _disabledOcrLanguages.Clear();
         foreach (Forms.ToolStripMenuItem item in langMenu.DropDownItems)
         {
-            if (item.Checked && item.Tag is Windows.Globalization.Language lang)
+            if (item.Tag is not Windows.Globalization.Language lang) continue;
+            if (item.Checked)
                 SelectedOcrLanguages.Add(lang);
+            else
+                _disabledOcrLanguages.Add(lang.LanguageTag);
         }
+        SaveSettings();
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -218,7 +229,9 @@ public partial class App : Application
                 ["boxSize"] = BoxSize,
                 ["searchBarSize"] = SearchBarSize,
                 ["searchBarX"] = SearchBarX.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                ["searchBarY"] = SearchBarY.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                ["searchBarY"] = SearchBarY.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["translateTarget"] = TranslateTarget,
+                ["disabledOcrLanguages"] = string.Join(",", _disabledOcrLanguages)
             };
             var json = JsonSerializer.Serialize(data);
             File.WriteAllText(GetFilePath(SettingsFileName), json);
@@ -249,6 +262,10 @@ public partial class App : Application
                     if (data.TryGetValue("searchBarY", out var sy) &&
                         double.TryParse(sy, System.Globalization.CultureInfo.InvariantCulture, out var parsedY))
                         SearchBarY = parsedY;
+                    if (data.TryGetValue("translateTarget", out var target) && !string.IsNullOrWhiteSpace(target))
+                        TranslateTarget = target;
+                    if (data.TryGetValue("disabledOcrLanguages", out var disabled))
+                        _disabledOcrLanguages.UnionWith(disabled.Split(',', StringSplitOptions.RemoveEmptyEntries));
                 }
             }
         }

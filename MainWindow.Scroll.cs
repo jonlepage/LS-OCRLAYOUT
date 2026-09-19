@@ -94,6 +94,7 @@ public partial class MainWindow : Window
             // Atomic swap on UI thread + dispose the previous frame to keep
             // GDI handle / native memory usage flat across many sessions.
             HighlightCanvas.Children.Clear();
+            ClearTranslation();
             var oldBmp = _screenshot;
             _screenshot = newBmp;
             UpdateScreenshotBitmap(newBmp);
@@ -112,16 +113,17 @@ public partial class MainWindow : Window
             if (newHash == _lastScreenshotHash && _ocrWords.Count > 0)
             {
                 Log("OCR cache HIT");
-                SearchBox_TextChanged(SearchBox, null!);
+                RefreshOverlayContent();
                 return;
             }
             _lastScreenshotHash = newHash;
 
             // OCR is expensive (enhance + convert + recognize). Runs entirely
             // off the UI thread; we only touch UI again to apply highlights.
-            await RunOcrAsync(newBmp);
+            _ocrTask = RunOcrAsync(newBmp);
+            await _ocrTask;
             if (_wheelGeneration != myGen) { Log("OCR: aborted (new session)"); return; }
-            SearchBox_TextChanged(SearchBox, null!);
+            RefreshOverlayContent();
         }
         catch (Exception ex)
         {

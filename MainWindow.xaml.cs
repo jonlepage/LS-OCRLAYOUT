@@ -12,10 +12,14 @@ namespace ScreenSearchOverlay;
 //   MainWindow.Capture.cs        — screen capture, OCR pipeline
 //   MainWindow.Search.cs         — search box, regex, menu, highlights
 //   MainWindow.SearchBar.cs      — search bar drag, position, size, key nav
+//   MainWindow.Translate.cs      — translate mode: translated text over the screen
 //   MainWindow.NativeInterop.cs  — Win32 P/Invoke + helpers
 public partial class MainWindow : Window
 {
     private readonly List<OcrWordInfo> _ocrWords = [];
+    private readonly List<OcrLineInfo> _ocrLines = [];
+    // Latest OCR pass — translate mode awaits it when clicked before OCR ends
+    private Task _ocrTask = Task.CompletedTask;
     private int _historyIndex = -1;
     private bool _isDragging;
     private System.Windows.Point _dragOffset;
@@ -104,7 +108,8 @@ public partial class MainWindow : Window
         Keyboard.Focus(SearchBox);
 
         // Run OCR in background
-        await RunOcrAsync(_screenshot);
+        _ocrTask = RunOcrAsync(_screenshot);
+        await _ocrTask;
     }
 
     private void Window_Closed(object? sender, EventArgs e)
