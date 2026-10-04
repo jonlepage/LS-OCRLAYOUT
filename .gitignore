@@ -8,3 +8,6 @@ ScreenSearchOverlay.exe
 dist/
 search-history.json
 settings.json
+prompts.json
+prompts.json.bak
+ScreenSearchOverlay.WebView2/

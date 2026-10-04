@@ -43,6 +43,14 @@ public partial class App : Application
     internal double SearchBarX { get; set; } = -1;
     internal double SearchBarY { get; set; } = -1;
     internal string TranslateTarget { get; set; } = "fr";
+    // UI language of the Prompt Builder and the tray menu (Loc).
+    internal string Language { get; set; } = Loc.DefaultCode();
+
+    // Tray items whose text follows the UI language.
+    private Forms.ToolStripItem? _trayFindHint;
+    private Forms.ToolStripItem? _trayPromptHint;
+    private Forms.ToolStripMenuItem? _trayOcrMenu;
+    private Forms.ToolStripItem? _trayQuit;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -50,6 +58,7 @@ public partial class App : Application
 
         LoadHistory();
         LoadSettings();
+        Loc.Apply(Language);
         SetupTrayIcon();
 
         var parameters = new HwndSourceParameters("HotkeyHost")
@@ -64,11 +73,13 @@ public partial class App : Application
         if (!RegisterHotKey(_hwndSource.Handle, HOTKEY_ID, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_F))
         {
             Forms.MessageBox.Show(
-                "Impossible d'enregistrer Ctrl+Alt+F.\nUn autre programme utilise peut-être ce raccourci.",
+                Loc.T("app.hotkeyFailed", "Ctrl+Alt+F"),
                 "ScreenSearchOverlay",
                 Forms.MessageBoxButtons.OK,
                 Forms.MessageBoxIcon.Warning);
         }
+
+        SetupPromptBuilder(_hwndSource.Handle);
     }
 
     private void SetupTrayIcon()
@@ -93,17 +104,23 @@ public partial class App : Application
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("Screen Search Overlay").Enabled = false;
         menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("Ctrl+Alt+F pour chercher").Enabled = false;
+        _trayFindHint = menu.Items.Add("");
+        _trayFindHint.Enabled = false;
+        _trayPromptHint = menu.Items.Add("");
+        _trayPromptHint.Enabled = false;
         menu.Items.Add(new Forms.ToolStripSeparator());
 
         // OCR Languages submenu
-        var langMenu = new Forms.ToolStripMenuItem("OCR Languages");
+        var langMenu = new Forms.ToolStripMenuItem();
+        _trayOcrMenu = langMenu;
         var availableLanguages = OcrEngine.AvailableRecognizerLanguages;
 
         foreach (var lang in availableLanguages)
         {
             var enabled = !_disabledOcrLanguages.Contains(lang.LanguageTag);
-            var item = new Forms.ToolStripMenuItem(lang.DisplayName)
+            // Name + tag: the tag identifies the language whatever the
+            // language of the name.
+            var item = new Forms.ToolStripMenuItem($"{lang.DisplayName} ({lang.LanguageTag})")
             {
                 CheckOnClick = true,
                 Checked = enabled,
@@ -117,7 +134,7 @@ public partial class App : Application
 
         menu.Items.Add(langMenu);
         menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("Quitter", null, (_, _) =>
+        _trayQuit = menu.Items.Add("", null, (_, _) =>
         {
             _trayIcon.Visible = false;
             Shutdown();
@@ -125,6 +142,25 @@ public partial class App : Application
 
         _trayIcon.ContextMenuStrip = menu;
         _trayIcon.DoubleClick += (_, _) => ShowOverlay();
+
+        UpdateTrayTexts();
+        Loc.Changed += UpdateTrayTexts;
+    }
+
+    private void UpdateTrayTexts()
+    {
+        if (_trayFindHint is null) return;
+        _trayFindHint.Text = Loc.T("tray.findHint");
+        _trayPromptHint!.Text = Loc.T("tray.promptHint");
+        _trayOcrMenu!.Text = Loc.T("tray.ocr");
+        _trayQuit!.Text = Loc.T("tray.quit");
+    }
+
+    internal void SetLanguage(string code)
+    {
+        Language = code;
+        Loc.Apply(code);
+        SaveSettings();
     }
 
     private void UpdateSelectedLanguages(Forms.ToolStripMenuItem langMenu)
@@ -147,6 +183,7 @@ public partial class App : Application
         if (_hwndSource != null)
         {
             UnregisterHotKey(_hwndSource.Handle, HOTKEY_ID);
+            TeardownPromptBuilder(_hwndSource.Handle);
             _hwndSource.RemoveHook(WndProc);
             _hwndSource.Dispose();
         }
@@ -166,6 +203,11 @@ public partial class App : Application
         {
             handled = true;
             ShowOverlay();
+        }
+        else if (msg == WM_HOTKEY && wParam.ToInt32() == PROMPT_HOTKEY_ID)
+        {
+            handled = true;
+            ShowPromptBuilder();
         }
         return IntPtr.Zero;
     }
@@ -231,8 +273,10 @@ public partial class App : Application
                 ["searchBarX"] = SearchBarX.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 ["searchBarY"] = SearchBarY.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 ["translateTarget"] = TranslateTarget,
-                ["disabledOcrLanguages"] = string.Join(",", _disabledOcrLanguages)
+                ["disabledOcrLanguages"] = string.Join(",", _disabledOcrLanguages),
+                ["language"] = Language
             };
+            SavePromptSettings(data);
             var json = JsonSerializer.Serialize(data);
             File.WriteAllText(GetFilePath(SettingsFileName), json);
         }
@@ -264,8 +308,11 @@ public partial class App : Application
                         SearchBarY = parsedY;
                     if (data.TryGetValue("translateTarget", out var target) && !string.IsNullOrWhiteSpace(target))
                         TranslateTarget = target;
+                    if (data.TryGetValue("language", out var language) && !string.IsNullOrWhiteSpace(language))
+                        Language = language;
                     if (data.TryGetValue("disabledOcrLanguages", out var disabled))
                         _disabledOcrLanguages.UnionWith(disabled.Split(',', StringSplitOptions.RemoveEmptyEntries));
+                    LoadPromptSettings(data);
                 }
             }
         }

@@ -12,6 +12,7 @@ Press **Ctrl+Alt+F**, search any text visible on screen with OCR, click to copy.
 | | |
 |---|---|
 | `Ctrl+Alt+F` | Open overlay (global hotkey) |
+| `Ctrl+Alt+G` | Prompt Builder: send the selected text to ChatGPT with a saved prompt (global hotkey, see [Prompt Builder](#prompt-builder)) |
 | Type | Highlight matching text |
 | Click match | Copy word to clipboard |
 | `文A` button | Translate the whole screen (click again to go back to search) |
@@ -33,6 +34,7 @@ Right-click inside the search box itself still opens the native paste menu.
 - **Regex** — toggle `.*` button
 - **Copy all / copy matched** — hamburger menu
 - **Zen mode**, **highlight size**, **search bar size** — hamburger menu, persisted
+- **Prompt Builder** — select text anywhere, `Ctrl+Alt+G`, pick a prompt, send to ChatGPT. See [Prompt Builder](#prompt-builder).
 
 ## Screen translation
 
@@ -63,6 +65,48 @@ Add-WindowsCapability -Online -Name "Language.OCR~~~ja-JP~0.0.1.0"
 ```
 
 On Windows 10, the "Optional features" page does not list OCR packs — use one of the two ways above.
+
+## Prompt Builder
+
+Select text in any app, press **Ctrl+Alt+G**:
+
+1. The selection is copied (a real `Ctrl+C` sent to the active app) and the screen under the cursor is captured. Both stay in the clipboard — `Win+V` lists the screenshot right above the text.
+2. The Prompt Builder opens: saved prompts on the left, the text on the right, editable. The message sent is **the prompt, a blank line, then the text** — so a prompt like `Corrige et traduis ce texte :` reads naturally.
+3. **Send** opens ChatGPT in its own window, starts a temporary chat, types the message and sends it. Tick **Attach screenshot** to attach the screenshot too. The footer shows the total number of characters ChatGPT will receive.
+4. **← Prompt Builder**, top left of the ChatGPT window, brings the Prompt Builder back as it was left — same prompt, text and screenshot — to adjust and send again.
+
+| | |
+|---|---|
+| Type in the search box | Filter prompts (accents and case ignored) |
+| `↑` / `↓` | Pick a prompt (from the search box) |
+| `Enter` | Send (from the search box or the list) |
+| `Ctrl+Enter` | Send (from anywhere) |
+| `Ctrl+1`…`9` | Pick the n-th visible prompt |
+| `Ctrl+N` / `Ctrl+D` | New prompt / duplicate |
+| `Alt+↑` / `Alt+↓` | Reorder |
+| `Delete` (in the list) | Delete, with **Undo** |
+| `Ctrl+wheel` in a text box | Text size of both text boxes |
+| Double-click a prompt | Send with it |
+| `Escape` | Clear the search, then close |
+
+Prompts are edited in place and saved as you type to `prompts.json`. The name is optional: an unnamed prompt shows its first line. While the name is being edited, a palette sets its **title color**, shown in the list too, so prompts can be told apart by color.
+
+Drag the splitters to resize the prompt list and the prompt box; the sizes, like the text size, are remembered.
+
+**⚙ Settings** (title bar): UI language — English (en) or Français (fr), applied live to the Prompt Builder, the ChatGPT window and the tray menu — and text size. Languages are always shown with their ISO code. Adding one is a table in `Loc.cs`. The overlay's own texts are still English only.
+
+Built for latency — the hotkey shows the window in ~60 ms once something is selected:
+
+- The screenshot is taken on a worker thread while `Ctrl+C` runs; its thumbnail, its PNG and its clipboard copy are all produced off the UI thread, after the window is up.
+- The Prompt Builder window is built while the app is idle after startup, then reused: closing it only hides it.
+- It is a regular window, not a layered one (`AllowsTransparency`), so resizing stays on the GPU. Everything is square, Windows 11 corners included.
+- Every `Ctrl+Alt+G` preheats ChatGPT: a blank temporary chat loads in the background while you pick a prompt, so **Envoyer** usually only has to type. The status strip shows how long the send took. If the ChatGPT window was open on a previous answer, that answer is replaced by the new blank chat.
+
+The ChatGPT window is a WebView2 created on the first `Ctrl+Alt+G`, then hidden — never closed. It runs logged out, in a profile of its own (`ScreenSearchOverlay.WebView2/`). Everything the app knows about chatgpt.com — selectors and injected scripts — lives in `ChatGptPage.cs`: when OpenAI changes its page, that is the file to fix. `F12` in the ChatGPT window opens the DevTools.
+
+**The text (and the screenshot, when ticked) is sent to OpenAI when you click Envoyer.** Nothing leaves your machine before.
+
+`Ctrl+C` goes to whatever app is active. In a terminal with nothing selected, that interrupts the running command.
 
 ## Install
 
@@ -97,6 +141,14 @@ To enable diagnostic logging at `%TEMP%\ls-ocrlayout-scroll.log`, add `<DefineCo
 | `Translator.cs` | `ITranslator`, Google implementation (batching, cache), `TranslationFilter` |
 | `LowLevelMouseHook.cs` | `WH_MOUSE_LL` on a dedicated thread (per MSDN guidance — UI-thread hooks risk silent detachment past `LowLevelHooksTimeout`) |
 | `App.xaml.cs` | global hotkey, tray icon, settings/history persistence |
+| `App.Prompt.cs` | Prompt Builder: `Ctrl+Alt+G`, selection + screenshot capture, prompt/chat window lifetime, its settings |
+| `PromptWindow.xaml(.cs)` | prompt list and editor, keyboard navigation, delete/undo; built at idle, hidden on close and reused |
+| `ChatWindow.xaml(.cs)` | ChatGPT in a WebView2: preheated on every `Ctrl+Alt+G`, hidden on close, send status strip with timing |
+| `ChatGptPage.cs` | chatgpt.com selectors + injected scripts — no UI dependency |
+| `PromptLibrary.cs` | `SavedPrompt`, `prompts.json`, message composition — no UI dependency |
+| `Loc.cs` | UI languages and strings (Prompt Builder, ChatGPT window, tray), published as live resources |
+| `SelectionGrabber.cs` | simulated `Ctrl+C` (the hotkey's modifiers released on the app's side), clipboard access |
+| `ScreenCapture.cs` | screenshot pipeline off the UI thread: capture, thumbnails, PNG, full-resolution clipboard copy |
 
 ### Scroll-through architecture
 
@@ -111,11 +163,13 @@ State machine `Idle ↔ Scrolling`. On the first wheel, the window goes `WS_EX_T
 
 ## Files written
 
-- `settings.json` — zen mode, highlight size, search bar size & position, translation target language, unchecked OCR languages
+- `settings.json` — zen mode, highlight size, search bar size & position, translation target language, unchecked OCR languages, UI language, Prompt Builder window sizes, splitters and text size, last prompt, screenshot checkbox
 - `search-history.json` — last 50 searches
+- `prompts.json` — saved prompts with their title color (indented, hand-editable; an unreadable file is set aside as `prompts.json.bak`, never overwritten)
+- `ScreenSearchOverlay.WebView2/` — the ChatGPT window's browser profile (created on the first send)
 
-Both live next to the .exe.
+All of them live next to the .exe.
 
 ## Requirements
 
-Windows 10 build 19041+ or Windows 11. At least one OCR language pack (your system language is usually pre-installed). Translation needs an internet connection; translating from Japanese needs the Japanese OCR pack ([see above](#japanese-and-other-asian-languages)).
+Windows 10 build 19041+ or Windows 11. At least one OCR language pack (your system language is usually pre-installed). Translation needs an internet connection; translating from Japanese needs the Japanese OCR pack ([see above](#japanese-and-other-asian-languages)). The Prompt Builder needs the Microsoft Edge WebView2 Runtime, preinstalled on Windows 11 and on up-to-date Windows 10.

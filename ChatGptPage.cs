@@ -1,0 +1,192 @@
+using System.Text.Json;
+
+namespace ScreenSearchOverlay;
+
+// Everything this app knows about chatgpt.com, in one place — no UI
+// dependency. OpenAI redesigns its composer every few months: when sending
+// breaks, this is the only file to fix. F12 in the ChatGPT window opens the
+// DevTools to re-read the page.
+//
+// Selectors come from LSDE2's webviewFallbackServices.const.ts and were
+// re-read in the live page on 2026-10-04 (logged out). Each one lists several
+// candidates, most precise first: querySelector takes the first match, which
+// lets the recipe survive a redesign rolled out to only part of the users.
+//
+// The scripts are plain strings run through ExecuteScriptAsync. Unlike
+// Electron's executeJavaScript, ExecuteScriptAsync does NOT await a returned
+// Promise (it hands back "{}"), so the async send script reports through
+// chrome.webview.postMessage instead of returning.
+internal static class ChatGptPage
+{
+    // Temporary chat: nothing lands in an account's history, and every send
+    // starts from a blank conversation.
+    internal const string NewConversationUrl = "https://chatgpt.com/?temporary-chat=true";
+
+    private const string PromptSelector =
+        "div#prompt-textarea[contenteditable=\"true\"], " +
+        "textarea#prompt-textarea, " +
+        "div.ProseMirror[contenteditable=\"true\"], " +
+        "textarea.wm-composer-textarea, " +
+        "form textarea[name=\"prompt\"], " +
+        "form div[contenteditable=\"true\"]";
+
+    // ':not([aria-disabled="true"])' matters: the 2026 composer keeps its
+    // button in the DOM and switches it off with aria-disabled, not with the
+    // native attribute. Clicking it then sends nothing.
+    private const string SendSelector =
+        "button[data-testid=\"send-button\"]:not([disabled]), " +
+        "button#composer-submit-button:not([disabled]), " +
+        "form button[data-composer-submit]:not([disabled]):not([aria-disabled=\"true\"])";
+
+    // The cookie banner, dismissed by REFUSING non-essential cookies — never
+    // by accepting them on the user's behalf. Designated by the form's hidden
+    // action value, not by its hashed class names or its translated text.
+    private const string ConsentRejectSelector =
+        "form[data-privacy-consent-form]:has(input[name=\"action\"][value=\"reject\"]) button[type=\"submit\"]";
+
+    // Fallback when the composer ignores a synthetic image paste.
+    private const string ImageInputSelector =
+        "input[type=\"file\"][accept*=\"image/png\"], input[type=\"file\"][accept*=\"image\"]";
+
+    internal const int ImageUploadTimeoutMs = 30_000;
+    internal const int SendTimeoutMs = 15_000;
+
+    // Synchronous probe: "true" once the composer exists, i.e. the page is
+    // hydrated and will not swap its document under the send script.
+    internal static string ReadyProbeScript =>
+        $"document.querySelector({Literal(PromptSelector)}) !== null";
+
+    // Synchronous: "true" when the banner was there and got refused. Refusing
+    // posts a form, so the page reloads right after.
+    internal static string RejectCookiesScript => $$"""
+        (() => {
+          const button = document.querySelector({{Literal(ConsentRejectSelector)}});
+          if (!button) return false;
+          button.click();
+          return true;
+        })()
+        """;
+
+    // Attach the screenshot (optional), type the text, wait for the send
+    // button to come alive, click it. Posts { id, ok, at, imageAttached }.
+    //
+    // Order verified on the live page: the image goes first, into an EMPTY
+    // composer, because its upload switches the send button off and an image
+    // alone switches it back on when the upload is done. That is the only
+    // reliable "upload finished" signal; with text already typed the button
+    // would stay on throughout.
+    //
+    // Every wait is a MutationObserver: it reacts to the very DOM change (the
+    // button losing aria-disabled) instead of discovering it at the next poll.
+    //
+    // Typing tries execCommand("insertText") first — the path a real keystroke
+    // takes, which the page's editor framework hears — then a synthetic paste,
+    // then a direct write (enough for a plain textarea). Same ladder as
+    // LSDE2's typeAndSend.
+    internal static string SendScript(string requestId, string text, string? pngBase64) => $$"""
+        (async () => {
+          const id = {{Literal(requestId)}};
+          const sendSelector = {{Literal(SendSelector)}};
+          const post = (result) => window.chrome.webview.postMessage(Object.assign({ id: id }, result));
+          const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
+          const waitFor = (selector, ms) => new Promise((resolve) => {
+            const now = document.querySelector(selector);
+            if (now) return resolve(now);
+            let timer = 0;
+            const observer = new MutationObserver(() => {
+              const found = document.querySelector(selector);
+              if (!found) return;
+              clearTimeout(timer);
+              observer.disconnect();
+              resolve(found);
+            });
+            observer.observe(document.documentElement, {
+              subtree: true, childList: true, attributes: true, attributeFilter: ["disabled", "aria-disabled"],
+            });
+            timer = setTimeout(() => { observer.disconnect(); resolve(document.querySelector(selector)); }, ms);
+          });
+          try {
+            const field = document.querySelector({{Literal(PromptSelector)}});
+            if (!field) return post({ ok: false, at: "prompt" });
+            const isTextarea = typeof field.value === "string";
+            const selectAll = () => {
+              field.focus();
+              if (isTextarea) { field.select(); return; }
+              const range = document.createRange();
+              range.selectNodeContents(field);
+              const selection = window.getSelection();
+              selection.removeAllRanges();
+              selection.addRange(range);
+            };
+            field.focus();
+
+            let imageAttached = null;
+            const image = {{(pngBase64 is null ? "null" : Literal(pngBase64))}};
+            if (image !== null) {
+              // The upload signal needs an empty composer (see above).
+              if ((isTextarea ? field.value : field.textContent).length > 0) {
+                selectAll();
+                document.execCommand("delete");
+              }
+              // One charCodeAt per byte in a plain loop: Uint8Array.from with a
+              // map callback costs a function call per character (1.2 M here).
+              const binary = atob(image);
+              const bytes = new Uint8Array(binary.length);
+              for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+              const transfer = new DataTransfer();
+              transfer.items.add(new File([bytes], "capture.png", { type: "image/png" }));
+              const handled = !field.dispatchEvent(
+                new ClipboardEvent("paste", { clipboardData: transfer, bubbles: true, cancelable: true }));
+              if (!handled) {
+                const input = document.querySelector({{Literal(ImageInputSelector)}});
+                if (input) {
+                  input.files = transfer.files;
+                  input.dispatchEvent(new Event("change", { bubbles: true }));
+                }
+              }
+              // The button may flick on for an instant as the attachment
+              // appears, before its upload starts: confirm it stays on.
+              let ready = await waitFor(sendSelector, {{ImageUploadTimeoutMs}});
+              if (ready) {
+                await sleep(120);
+                ready = await waitFor(sendSelector, {{ImageUploadTimeoutMs}});
+              }
+              imageAttached = ready !== null;
+            }
+
+            const text = {{Literal(text)}};
+            if (text.length > 0) {
+              selectAll();
+              let typed = false;
+              try { typed = document.execCommand("insertText", false, text); } catch (e) { typed = false; }
+              if (!typed) {
+                try {
+                  const transfer = new DataTransfer();
+                  transfer.setData("text/plain", text);
+                  typed = !field.dispatchEvent(
+                    new ClipboardEvent("paste", { clipboardData: transfer, bubbles: true, cancelable: true }));
+                } catch (e) { typed = false; }
+              }
+              if (!typed) {
+                if (isTextarea) field.value = text;
+                else field.textContent = text;
+                field.dispatchEvent(new Event("input", { bubbles: true }));
+              }
+            }
+
+            const button = await waitFor(sendSelector, {{SendTimeoutMs}});
+            if (!button) return post({ ok: false, at: "send", imageAttached: imageAttached });
+            // Reported BEFORE the click: if sending navigates the page, this
+            // script dies with the document and could never report after.
+            post({ ok: true, at: "", imageAttached: imageAttached });
+            button.click();
+          } catch (error) {
+            post({ ok: false, at: "script", detail: String(error) });
+          }
+        })();
+        """;
+
+    // A JSON string is a valid JS string literal, quotes and newlines
+    // escaped: user text can never break out of the injected script.
+    private static string Literal(string value) => JsonSerializer.Serialize(value);
+}
