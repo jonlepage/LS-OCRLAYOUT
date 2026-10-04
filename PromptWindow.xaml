@@ -988,6 +988,10 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
+                    <!-- Tracks the hint column's width, which also changes
+                         when the total beside it grows. -->
+                    <Border x:Name="HintHost" Grid.Column="1" SizeChanged="HintHost_SizeChanged" />
+
                     <StackPanel x:Name="CapturePanel" Orientation="Horizontal" VerticalAlignment="Center">
                         <Border x:Name="CaptureThumb"
                                 Width="72" Height="42"
@@ -1004,12 +1008,12 @@
                                   Unchecked="AttachCapture_Changed" />
                     </StackPanel>
 
+                    <!-- Shown whole or not at all (FitHint): never cut by an ellipsis. -->
                     <TextBlock x:Name="HintText"
                                Grid.Column="1"
                                Margin="16,0"
                                HorizontalAlignment="Center"
-                               Style="{StaticResource Hint}"
-                               TextTrimming="CharacterEllipsis">
+                               Style="{StaticResource Hint}">
                         <Run Text="{DynamicResource pb.hint.sendKey}" Foreground="{StaticResource TextSecondary}" /><Run Text="{DynamicResource pb.hint.send}" /><Run Text="↑↓" Foreground="{StaticResource TextSecondary}" /><Run Text="{DynamicResource pb.hint.pick}" /><Run Text="{DynamicResource pb.hint.escKey}" Foreground="{StaticResource TextSecondary}" /><Run Text="{DynamicResource pb.hint.close}" />
                     </TextBlock>
 

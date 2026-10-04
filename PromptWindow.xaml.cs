@@ -439,6 +439,8 @@ public partial class PromptWindow : Window
         UpdateComposerState();
         CharCount.Text = BodyBox.Text.Length == 0 ? "" : Loc.Characters(BodyBox.Text.Length);
         TextSizeValue.Text = PromptBox.FontSize.ToString("0.#", Loc.Culture);
+        // The new texts change the hint's and the total's widths: refit once laid out.
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, FitHint);
     }
 
     private void SettingsButton_Click(object sender, RoutedEventArgs e) =>
@@ -449,6 +451,18 @@ public partial class PromptWindow : Window
         _app.SetLanguage((string)((Button)sender).Tag);
         SettingsPopup.IsOpen = false;
     }
+
+    // The keyboard hint is a nicety: when the footer is too narrow for all of
+    // it (narrow window, longer language), it steps aside rather than being
+    // cut. Opacity, not Visibility, which the undo bar already drives.
+    private void FitHint()
+    {
+        HintText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        var available = HintHost.ActualWidth - HintText.Margin.Left - HintText.Margin.Right;
+        HintText.Opacity = HintText.DesiredSize.Width <= available ? 1 : 0;
+    }
+
+    private void HintHost_SizeChanged(object sender, SizeChangedEventArgs e) => FitHint();
 
     private void TextSmaller_Click(object sender, RoutedEventArgs e) => ChangeTextSize(-1);
     private void TextLarger_Click(object sender, RoutedEventArgs e) => ChangeTextSize(+1);
