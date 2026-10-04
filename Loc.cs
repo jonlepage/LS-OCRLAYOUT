@@ -88,12 +88,39 @@ internal static class Loc
             ["chat.noRuntime"] = "WebView2 runtime not found. Install “Microsoft Edge WebView2 Runtime”, then try again.",
             ["chat.failed"] = "Send failed: {0}",
 
+            ["tray.tooltip"] = "Screen Search Overlay\nCtrl+Alt+F  search\nCtrl+Alt+G  Prompt Builder",
             ["tray.findHint"] = "Ctrl+Alt+F to search",
             ["tray.promptHint"] = "Ctrl+Alt+G for the Prompt Builder",
             ["tray.ocr"] = "OCR languages",
             ["tray.quit"] = "Quit",
             ["app.hotkeyFailed"] = "Could not register {0}.\nAnother program may be using this shortcut.",
             ["app.promptError"] = "Prompt Builder: {0}",
+
+            ["ov.regexTip"] = "Regex search",
+            ["ov.translateTip"] = "Translate screen",
+            ["ov.invalidRegex"] = "invalid regex",
+            ["ov.match.one"] = "{0} match",
+            ["ov.match.other"] = "{0} matches",
+            ["ov.noMatch"] = "no match",
+            ["ov.copyAll"] = "Copy all screen text",
+            ["ov.allCopied"] = "all text copied",
+            ["ov.copyHighlighted"] = "Copy highlighted text",
+            ["ov.highlightedCopied"] = "highlighted text copied",
+            ["ov.clearHistory"] = "Clear history",
+            ["ov.historyCleared"] = "history cleared",
+            ["ov.zen"] = "Zen mode",
+            ["ov.highlightSize"] = "Highlight size",
+            ["ov.searchBarSize"] = "Search bar size",
+            ["ov.size.large"] = "large",
+            ["ov.size.medium"] = "medium",
+            ["ov.size.small"] = "small",
+            ["ov.size.tiny"] = "tiny",
+            ["ov.translating"] = "translating…",
+            ["ov.noText"] = "no text found",
+            ["ov.nothingToTranslate"] = "nothing to translate",
+            ["ov.translated.one"] = "{0} line translated — click anywhere to close",
+            ["ov.translated.other"] = "{0} lines translated — click anywhere to close",
+            ["ov.translateFailed"] = "translation failed: {0}",
         },
         ["fr"] = new()
         {
@@ -160,12 +187,39 @@ internal static class Loc
             ["chat.noRuntime"] = "Le runtime WebView2 est introuvable. Installe « Microsoft Edge WebView2 Runtime », puis réessaie.",
             ["chat.failed"] = "Envoi impossible : {0}",
 
+            ["tray.tooltip"] = "Screen Search Overlay\nCtrl+Alt+F  chercher\nCtrl+Alt+G  Prompt Builder",
             ["tray.findHint"] = "Ctrl+Alt+F pour chercher",
             ["tray.promptHint"] = "Ctrl+Alt+G pour le Prompt Builder",
             ["tray.ocr"] = "Langues OCR",
             ["tray.quit"] = "Quitter",
             ["app.hotkeyFailed"] = "Impossible d'enregistrer {0}.\nUn autre programme utilise peut-être ce raccourci.",
             ["app.promptError"] = "Prompt Builder : {0}",
+
+            ["ov.regexTip"] = "Recherche par regex",
+            ["ov.translateTip"] = "Traduire l'écran",
+            ["ov.invalidRegex"] = "regex invalide",
+            ["ov.match.one"] = "{0} résultat",
+            ["ov.match.other"] = "{0} résultats",
+            ["ov.noMatch"] = "aucun résultat",
+            ["ov.copyAll"] = "Copier tout le texte de l'écran",
+            ["ov.allCopied"] = "tout le texte copié",
+            ["ov.copyHighlighted"] = "Copier le texte surligné",
+            ["ov.highlightedCopied"] = "texte surligné copié",
+            ["ov.clearHistory"] = "Effacer l'historique",
+            ["ov.historyCleared"] = "historique effacé",
+            ["ov.zen"] = "Mode zen",
+            ["ov.highlightSize"] = "Taille du surlignage",
+            ["ov.searchBarSize"] = "Taille de la barre de recherche",
+            ["ov.size.large"] = "grande",
+            ["ov.size.medium"] = "moyenne",
+            ["ov.size.small"] = "petite",
+            ["ov.size.tiny"] = "minuscule",
+            ["ov.translating"] = "traduction…",
+            ["ov.noText"] = "aucun texte trouvé",
+            ["ov.nothingToTranslate"] = "rien à traduire",
+            ["ov.translated.one"] = "{0} ligne traduite — clique n'importe où pour fermer",
+            ["ov.translated.other"] = "{0} lignes traduites — clique n'importe où pour fermer",
+            ["ov.translateFailed"] = "échec de la traduction : {0}",
         },
     };
 
@@ -213,11 +267,13 @@ internal static class Loc
 
     internal static string T(string key, object argument) => string.Format(Culture, T(key), argument);
 
-    // "1 caractère" / "0 caractère" in French, "1 character" / "0 characters"
-    // in English: the two languages disagree on zero.
-    internal static string Characters(int count)
+    internal static string Characters(int count) => Plural("pb.chars", count);
+
+    // key.one / key.other with the count formatted for the language. French
+    // and English disagree on zero: "0 caractère" but "0 characters".
+    internal static string Plural(string key, int count)
     {
         var singular = Current == "fr" ? count <= 1 : count == 1;
-        return T(singular ? "pb.chars.one" : "pb.chars.other", count.ToString("N0", Culture));
+        return T(key + (singular ? ".one" : ".other"), count.ToString("N0", Culture));
     }
 }

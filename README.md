@@ -93,7 +93,7 @@ Prompts are edited in place and saved as you type to `prompts.json`. The name is
 
 Drag the splitters to resize the prompt list and the prompt box; the sizes, like the text size, are remembered.
 
-**⚙ Settings** (title bar): UI language — English (en) or Français (fr), applied live to the Prompt Builder, the ChatGPT window and the tray menu — and text size. Languages are always shown with their ISO code. Adding one is a table in `Loc.cs`. The overlay's own texts are still English only.
+**⚙ Settings** (title bar): UI language — English (en) or Français (fr), applied live to the whole app: overlay, Prompt Builder, ChatGPT window and tray menu — and text size. Languages are always shown with their ISO code. Adding one is a table in `Loc.cs`.
 
 Built for latency — the hotkey shows the window in ~60 ms once something is selected:
 

@@ -86,7 +86,7 @@
                               Foreground="White"
                               Background="Transparent"
                               BorderBrush="#66FFFFFF"
-                              ToolTip="Regex search"
+                              ToolTip="{DynamicResource ov.regexTip}"
                               Checked="RegexToggle_Changed"
                               Unchecked="RegexToggle_Changed"/>
                 <ToggleButton x:Name="TranslateToggle"
@@ -98,7 +98,7 @@
                               Foreground="White"
                               Background="Transparent"
                               BorderBrush="#66FFFFFF"
-                              ToolTip="Translate screen"
+                              ToolTip="{DynamicResource ov.translateTip}"
                               Checked="TranslateToggle_Changed"
                               Unchecked="TranslateToggle_Changed"/>
             </StackPanel>

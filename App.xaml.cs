@@ -86,7 +86,6 @@ public partial class App : Application
     {
         _trayIcon = new Forms.NotifyIcon
         {
-            Text = "Screen Search Overlay (Ctrl+Alt+F)",
             Visible = true
         };
 
@@ -150,6 +149,8 @@ public partial class App : Application
     private void UpdateTrayTexts()
     {
         if (_trayFindHint is null) return;
+        // Both hotkeys on hover, not just the overlay's (127 characters max).
+        _trayIcon!.Text = Loc.T("tray.tooltip");
         _trayFindHint.Text = Loc.T("tray.findHint");
         _trayPromptHint!.Text = Loc.T("tray.promptHint");
         _trayOcrMenu!.Text = Loc.T("tray.ocr");

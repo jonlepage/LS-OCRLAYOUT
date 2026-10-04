@@ -85,7 +85,7 @@ public partial class MainWindow : Window
     {
         ClearTranslation();
         var generation = _translateGeneration;
-        SetStatus("translating…", Color.FromArgb(170, 255, 255, 255));
+        SetStatus(Loc.T("ov.translating"), Color.FromArgb(170, 255, 255, 255));
 
         try
         {
@@ -96,7 +96,7 @@ public partial class MainWindow : Window
             var lines = _ocrLines.Where(l => TranslationFilter.IsWorthTranslating(l.Text)).ToList();
             if (lines.Count == 0)
             {
-                SetStatus("no text found", Color.FromArgb(170, 255, 255, 0), fadeOut: true);
+                SetStatus(Loc.T("ov.noText"), Color.FromArgb(170, 255, 255, 0), fadeOut: true);
                 return;
             }
 
@@ -113,7 +113,7 @@ public partial class MainWindow : Window
                 .ToList();
             if (shown.Count == 0)
             {
-                SetStatus("nothing to translate", Color.FromArgb(170, 255, 255, 0), fadeOut: true);
+                SetStatus(Loc.T("ov.nothingToTranslate"), Color.FromArgb(170, 255, 255, 0), fadeOut: true);
                 return;
             }
 
@@ -132,14 +132,14 @@ public partial class MainWindow : Window
                 block.BeginAnimation(OpacityProperty, fadeIn);
             }
 
-            SetStatus($"{shown.Count} line{(shown.Count > 1 ? "s" : "")} translated — click anywhere to close",
+            SetStatus(Loc.Plural("ov.translated", shown.Count),
                 Color.FromArgb(170, 255, 255, 255), fadeOut: true);
         }
         catch (Exception ex)
         {
             Log($"translate EX: {ex}");
             if (generation == _translateGeneration)
-                SetStatus($"translation failed: {ex.Message}", Color.FromArgb(170, 255, 80, 80));
+                SetStatus(Loc.T("ov.translateFailed", ex.Message), Color.FromArgb(170, 255, 80, 80));
         }
     }
 

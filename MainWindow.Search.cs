@@ -30,7 +30,7 @@ public partial class MainWindow : Window
             }
             catch (RegexParseException)
             {
-                BottomCountLabel.Text = "invalid regex";
+                BottomCountLabel.Text = Loc.T("ov.invalidRegex");
                 BottomCountLabel.Foreground = new SolidColorBrush(
                     System.Windows.Media.Color.FromArgb(170, 255, 80, 80));
                 return;
@@ -75,7 +75,7 @@ public partial class MainWindow : Window
 
         BottomCountLabel.Foreground = new SolidColorBrush(
             System.Windows.Media.Color.FromArgb(170, 255, 255, 0));
-        var text = matchCount > 0 ? $"{matchCount} match{(matchCount > 1 ? "es" : "")}" : "no match";
+        var text = matchCount > 0 ? Loc.Plural("ov.match", matchCount) : Loc.T("ov.noMatch");
         BottomCountLabel.Text = text;
     }
 
@@ -127,39 +127,39 @@ public partial class MainWindow : Window
         menu.Style = null;
 
         // Copy all screen text
-        var copyAll = new System.Windows.Controls.MenuItem { Header = "Copy all screen text" };
+        var copyAll = new System.Windows.Controls.MenuItem { Header = Loc.T("ov.copyAll") };
         copyAll.IsEnabled = _ocrWords.Count > 0;
         copyAll.Click += (_, _) =>
         {
             var allText = string.Join(" ", _ocrWords.Select(w => w.Text));
             System.Windows.Clipboard.SetText(allText);
-            BottomCountLabel.Text = "all text copied";
+            BottomCountLabel.Text = Loc.T("ov.allCopied");
         };
         menu.Items.Add(copyAll);
 
         // Copy highlighted text
-        var copyHighlighted = new System.Windows.Controls.MenuItem { Header = "Copy highlighted text" };
+        var copyHighlighted = new System.Windows.Controls.MenuItem { Header = Loc.T("ov.copyHighlighted") };
         var query = SearchBox.Text.Trim();
         copyHighlighted.IsEnabled = !string.IsNullOrEmpty(query) && HighlightCanvas.Children.Count > 0;
         copyHighlighted.Click += (_, _) =>
         {
             var matchedWords = GetMatchedWords();
             System.Windows.Clipboard.SetText(string.Join(" ", matchedWords));
-            BottomCountLabel.Text = "highlighted text copied";
+            BottomCountLabel.Text = Loc.T("ov.highlightedCopied");
         };
         menu.Items.Add(copyHighlighted);
 
         menu.Items.Add(new System.Windows.Controls.Separator());
 
         // Clear history
-        var clearHistory = new System.Windows.Controls.MenuItem { Header = "Clear history" };
+        var clearHistory = new System.Windows.Controls.MenuItem { Header = Loc.T("ov.clearHistory") };
         clearHistory.IsEnabled = app.SearchHistory.Count > 0;
         clearHistory.Click += (_, _) =>
         {
             app.SearchHistory.Clear();
             app.AddToSearchHistory(""); // triggers save with empty (clears file)
             app.SearchHistory.Clear();
-            BottomCountLabel.Text = "history cleared";
+            BottomCountLabel.Text = Loc.T("ov.historyCleared");
         };
         menu.Items.Add(clearHistory);
 
@@ -168,7 +168,7 @@ public partial class MainWindow : Window
         // Zen mode
         var zenMode = new System.Windows.Controls.MenuItem
         {
-            Header = "Zen mode",
+            Header = Loc.T("ov.zen"),
             IsCheckable = true,
             IsChecked = app.ZenMode
         };
@@ -183,12 +183,12 @@ public partial class MainWindow : Window
         menu.Items.Add(new System.Windows.Controls.Separator());
 
         // Highlight size
-        var highlightSizeMenu = new System.Windows.Controls.MenuItem { Header = "Highlight size" };
+        var highlightSizeMenu = new System.Windows.Controls.MenuItem { Header = Loc.T("ov.highlightSize") };
         foreach (var size in new[] { "large", "medium", "small" })
         {
             var item = new System.Windows.Controls.MenuItem
             {
-                Header = size,
+                Header = Loc.T("ov.size." + size),
                 IsCheckable = true,
                 IsChecked = app.BoxSize == size
             };
@@ -204,12 +204,12 @@ public partial class MainWindow : Window
         menu.Items.Add(highlightSizeMenu);
 
         // Search bar size
-        var searchBarMenu = new System.Windows.Controls.MenuItem { Header = "Search bar size" };
+        var searchBarMenu = new System.Windows.Controls.MenuItem { Header = Loc.T("ov.searchBarSize") };
         foreach (var size in new[] { "large", "medium", "small", "tiny" })
         {
             var item = new System.Windows.Controls.MenuItem
             {
-                Header = size,
+                Header = Loc.T("ov.size." + size),
                 IsCheckable = true,
                 IsChecked = app.SearchBarSize == size
             };
