@@ -2,6 +2,8 @@
 
 Press **Ctrl+Alt+F**, search any text visible on screen with OCR, click to copy. Like Ctrl+F for the whole screen — and one click on **文A** translates everything on screen, in place, in any app.
 
+Press **Ctrl+Alt+G** on any selected text to send it to ChatGPT with one of your saved prompts — see [Prompt Builder](#prompt-builder).
+
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%2F11-blue)
 ![.NET 10](https://img.shields.io/badge/.NET-10.0-purple)
 
@@ -34,7 +36,8 @@ Right-click inside the search box itself still opens the native paste menu.
 - **Regex** — toggle `.*` button
 - **Copy all / copy matched** — hamburger menu
 - **Zen mode**, **highlight size**, **search bar size** — hamburger menu, persisted
-- **Prompt Builder** — select text anywhere, `Ctrl+Alt+G`, pick a prompt, send to ChatGPT. See [Prompt Builder](#prompt-builder).
+- **Prompt Builder** — select text anywhere, `Ctrl+Alt+G`, pick a saved prompt, send to ChatGPT (screenshot optional). See [Prompt Builder](#prompt-builder).
+- **English / Français** — ⚙ in the Prompt Builder, applied live to the whole app
 
 ## Screen translation
 
@@ -55,7 +58,7 @@ To add Japanese:
 
 1. Settings → Time & Language → Language → **Add a language** → **日本語 Japanese** → Next
 2. **Uncheck** "Set as my Windows display language", then Install. Optical character recognition is part of the required features.
-3. Restart ScreenSearchOverlay (tray icon → Quitter, then launch it again).
+3. Restart ScreenSearchOverlay (tray icon → Quit, then launch it again).
 
 Or from an admin PowerShell:
 
@@ -68,43 +71,69 @@ On Windows 10, the "Optional features" page does not list OCR packs — use one 
 
 ## Prompt Builder
 
-Select text in any app, press **Ctrl+Alt+G**:
+Select text anywhere — a web page, a PDF, a chat, any app — press **Ctrl+Alt+G**, pick a prompt, send it to ChatGPT. Your prompts are saved, searchable and color-coded, so "fix this", "translate that", "explain this error" are one keystroke away.
 
-1. The selection is copied (a real `Ctrl+C` sent to the active app) and the screen under the cursor is captured. Both stay in the clipboard — `Win+V` lists the screenshot right above the text.
-2. The Prompt Builder opens: saved prompts on the left, the text on the right, editable. The message sent is **the prompt, a blank line, then the text** — so a prompt like `Corrige et traduis ce texte :` reads naturally.
-3. **Send** opens ChatGPT in its own window, starts a temporary chat, types the message and sends it. Tick **Attach screenshot** to attach the screenshot too. The footer shows the total number of characters ChatGPT will receive.
-4. **← Prompt Builder**, top left of the ChatGPT window, brings the Prompt Builder back as it was left — same prompt, text and screenshot — to adjust and send again.
+[![Prompt Builder](prompt-builder.png)](prompt-builder.png)
+
+### How it works
+
+1. **Ctrl+Alt+G** copies the selection (a real `Ctrl+C` sent to the active app) and captures the screen under the cursor. Both stay in the clipboard: `Win+V` lists the screenshot right above the text.
+2. **The Prompt Builder opens** on the monitor you are working on: saved prompts on the left, the selected prompt and the text on the right — both editable before sending. No selection? The text box is empty and ready to type or paste into.
+3. **Send** opens ChatGPT in its own window, starts a temporary chat, types the message and sends it. The message is **the prompt, a blank line, then the text**, so a prompt ending with a colon (`Fix this text:`) reads naturally. Tick **Attach screenshot** to send the screen capture with it (hover the thumbnail to preview it, click it to toggle). The footer shows the total ChatGPT will receive, e.g. `Total: 226 characters + screenshot`.
+4. **← Prompt Builder**, top left of the ChatGPT window, brings the Prompt Builder back exactly as it was left — same prompt, text and screenshot — to adjust and send again while the answer stays visible.
+
+### Keyboard
 
 | | |
 |---|---|
-| Type in the search box | Filter prompts (accents and case ignored) |
+| Type in the search box | Filter prompts by name or content (accents and case ignored) |
 | `↑` / `↓` | Pick a prompt (from the search box) |
 | `Enter` | Send (from the search box or the list) |
 | `Ctrl+Enter` | Send (from anywhere) |
-| `Ctrl+1`…`9` | Pick the n-th visible prompt |
-| `Ctrl+N` / `Ctrl+D` | New prompt / duplicate |
-| `Alt+↑` / `Alt+↓` | Reorder |
-| `Delete` (in the list) | Delete, with **Undo** |
-| `Ctrl+wheel` in a text box | Text size of both text boxes |
+| `Ctrl+1` … `Ctrl+9` | Pick the n-th visible prompt (numbers shown in the list) |
+| `Ctrl+N` / `Ctrl+D` | New prompt / duplicate the selected one |
+| `Alt+↑` / `Alt+↓` | Move the selected prompt up / down |
+| `Delete` (in the list) | Delete, with **Undo** in the footer for a few seconds |
+| `Ctrl+F` | Search |
+| `Ctrl+wheel` in a text box | Text size |
 | Double-click a prompt | Send with it |
 | `Escape` | Clear the search, then close |
 
-Prompts are edited in place and saved as you type to `prompts.json`. The name is optional: an unnamed prompt shows its first line. While the name is being edited, a palette sets its **title color**, shown in the list too, so prompts can be told apart by color.
+Right-click a prompt for the same actions.
 
-Drag the splitters to resize the prompt list and the prompt box; the sizes, like the text size, are remembered.
+### Managing prompts
 
-**⚙ Settings** (title bar): UI language — English (en) or Français (fr), applied live to the whole app: overlay, Prompt Builder, ChatGPT window and tray menu — and text size. Languages are always shown with their ISO code. Adding one is a table in `Loc.cs`.
+- **Edit in place**: the selected prompt's name and text are edited right in the window and saved as you type to `prompts.json`.
+- **The name is optional**: an unnamed prompt is listed by its first line. Write a prompt and send it right away.
+- **Title colors**: while a name is being edited, a palette appears next to it. The color is shown on the title, in the list and on the selection bar, so prompts are recognized at a glance.
+- **First run**: six starter prompts (fix, translate, explain, summarize, rephrase) in the UI language.
+- **Layout**: drag the vertical line to widen the prompt list, and the handle under the prompt box to make it taller. Sizes, text size and window size are remembered.
 
-Built for latency — the hotkey shows the window in ~60 ms once something is selected:
+### Settings and languages
+
+**⚙** in the title bar:
+
+- **Language**: English (en) or Français (fr), applied live to the whole app — overlay, Prompt Builder, ChatGPT window and tray menu. Languages are always shown with their ISO code, readable whatever the current language. The first run follows the Windows display language. Adding a language is one table in `Loc.cs`.
+- **Text size** of the prompt and text boxes (also `Ctrl+wheel`).
+
+Hover the tray icon to see both hotkeys.
+
+### Fast by design
+
+The window shows ~60 ms after the hotkey once something is selected (~300 ms more with nothing selected: the time given to the app to answer `Ctrl+C`).
 
 - The screenshot is taken on a worker thread while `Ctrl+C` runs; its thumbnail, its PNG and its clipboard copy are all produced off the UI thread, after the window is up.
-- The Prompt Builder window is built while the app is idle after startup, then reused: closing it only hides it.
+- The window is built while the app is idle after startup, then reused: closing it only hides it.
 - It is a regular window, not a layered one (`AllowsTransparency`), so resizing stays on the GPU. Everything is square, Windows 11 corners included.
-- Every `Ctrl+Alt+G` preheats ChatGPT: a blank temporary chat loads in the background while you pick a prompt, so **Envoyer** usually only has to type. The status strip shows how long the send took. If the ChatGPT window was open on a previous answer, that answer is replaced by the new blank chat.
+- Every `Ctrl+Alt+G` preheats ChatGPT: a blank temporary chat loads in the background while you pick a prompt, so **Send** usually only has to type. The ChatGPT window's status strip shows how long the send took. If that window was open on a previous answer, the answer is replaced by the new blank chat.
 
-The ChatGPT window is a WebView2 created on the first `Ctrl+Alt+G`, then hidden — never closed. It runs logged out, in a profile of its own (`ScreenSearchOverlay.WebView2/`). Everything the app knows about chatgpt.com — selectors and injected scripts — lives in `ChatGptPage.cs`: when OpenAI changes its page, that is the file to fix. `F12` in the ChatGPT window opens the DevTools.
+### ChatGPT window
 
-**The text (and the screenshot, when ticked) is sent to OpenAI when you click Envoyer.** Nothing leaves your machine before.
+A WebView2 created on the first `Ctrl+Alt+G`, then hidden — never closed. It runs logged out, in a temporary chat (nothing is kept in any history), in a profile of its own (`ScreenSearchOverlay.WebView2/`); the cookie banner is refused automatically. Links in answers open in your browser.
+
+Everything the app knows about chatgpt.com — selectors and injected scripts — lives in `ChatGptPage.cs`: when OpenAI changes its page, that is the file to fix. `F12` in the ChatGPT window opens the DevTools. If sending fails, the status strip says at which step.
+
+**The text (and the screenshot, when ticked) is sent to OpenAI when you click Send.** Nothing leaves your machine before.
 
 `Ctrl+C` goes to whatever app is active. In a terminal with nothing selected, that interrupts the running command.
 
