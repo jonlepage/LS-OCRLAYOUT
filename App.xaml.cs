@@ -101,7 +101,14 @@ public partial class App : Application
         }
 
         var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("Screen Search Overlay").Enabled = false;
+        // Name on the left, version right-aligned (the shortcut column). The
+        // version is the exe's, i.e. package.json's.
+        var version = typeof(App).Assembly.GetName().Version;
+        menu.Items.Add(new Forms.ToolStripMenuItem("Screen Search Overlay")
+        {
+            Enabled = false,
+            ShortcutKeyDisplayString = version is null ? "" : $"v{version.Major}.{version.Minor}.{version.Build}",
+        });
         menu.Items.Add(new Forms.ToolStripSeparator());
         _trayFindHint = menu.Items.Add("");
         _trayFindHint.Enabled = false;

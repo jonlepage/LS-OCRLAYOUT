@@ -1,9 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Version>1.4.0</Version>
-    <FileVersion>1.4.0.0</FileVersion>
-    <AssemblyVersion>1.4.0.0</AssemblyVersion>
+    <!-- The version lives in package.json only: read here at every build. -->
+    <PackageJsonVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)package.json')), '"version"\s*:\s*"(\d+\.\d+\.\d+)"').Groups[1].Value)</PackageJsonVersion>
+    <Version>$(PackageJsonVersion)</Version>
+    <FileVersion>$(PackageJsonVersion).0</FileVersion>
+    <AssemblyVersion>$(PackageJsonVersion).0</AssemblyVersion>
     <Product>ScreenSearchOverlay</Product>
     <Company>LEPASOFT</Company>
     <Description>OCR-powered screen text search overlay for Windows</Description>

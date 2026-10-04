@@ -149,7 +149,7 @@ Download `ScreenSearchOverlay.exe` from the [latest release](../../releases/late
 .\build.ps1 -Release   # build + GitHub release
 ```
 
-Version lives in `ScreenSearchOverlay.csproj` (`<Version>`).
+Version lives in `package.json` only — the `.csproj` and `build.ps1` both read it from there.
 
 To enable diagnostic logging at `%TEMP%\ls-ocrlayout-scroll.log`, add `<DefineConstants>LS_DEBUG_LOG</DefineConstants>` to the csproj. Off by default — `[Conditional]` strips the calls completely in release.
 

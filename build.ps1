@@ -7,10 +7,9 @@ $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 $csproj = Join-Path $root "ScreenSearchOverlay.csproj"
 
-# Read version from .csproj
-[xml]$proj = Get-Content $csproj
-$version = $proj.Project.PropertyGroup.Version
-if (-not $version) { throw "No <Version> found in .csproj" }
+# Read version from package.json — the only place it is written (the .csproj reads it too)
+$version = (Get-Content (Join-Path $root "package.json") -Raw | ConvertFrom-Json).version
+if (-not $version) { throw "No version found in package.json" }
 
 $publishDir = Join-Path $root "bin\Release\net10.0-windows10.0.19041.0\win-x64\publish"
 $distDir = Join-Path $root "dist"
