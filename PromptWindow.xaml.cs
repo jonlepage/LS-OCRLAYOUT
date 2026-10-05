@@ -1,5 +1,6 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -43,6 +44,9 @@ public partial class PromptWindow : Window
     internal const double DefaultTextSize = 13.5;
     private const double MinTextSize = 10;
     private const double MaxTextSize = 28;
+
+    // Settings panel, "Generate an account": a throwaway address to sign up with.
+    private const string TempMailUrl = "https://temp-mail.id";
 
     private readonly App _app = (App)System.Windows.Application.Current;
     private readonly ListCollectionView _view;
@@ -450,6 +454,13 @@ public partial class PromptWindow : Window
     {
         _app.SetLanguage((string)((Button)sender).Tag);
         SettingsPopup.IsOpen = false;
+    }
+
+    // In the system browser, like every link leaving the app.
+    private void NewAccount_Click(object sender, RoutedEventArgs e)
+    {
+        SettingsPopup.IsOpen = false;
+        try { Process.Start(new ProcessStartInfo(TempMailUrl) { UseShellExecute = true }); } catch { }
     }
 
     // The keyboard hint is a nicety: when the footer is too narrow for all of

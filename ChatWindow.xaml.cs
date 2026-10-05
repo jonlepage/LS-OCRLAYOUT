@@ -29,7 +29,8 @@ public partial class ChatWindow : Window
     private const int ComposerPollMs = 40;
     // Upper bound for the whole in-page send; the script has its own,
     // shorter deadlines and normally reports long before.
-    private const int SendResultTimeoutMs = ChatGptPage.ImageUploadTimeoutMs * 2 + ChatGptPage.SendTimeoutMs + 10_000;
+    private const int SendResultTimeoutMs =
+        ChatGptPage.PageBootTimeoutMs + ChatGptPage.ImageUploadTimeoutMs * 2 + ChatGptPage.SendTimeoutMs + 10_000;
 
     // A hidden page must not be slowed down: its load runs while the
     // window is hidden (the preheat), and the send script's waits are timers.
@@ -261,11 +262,16 @@ public partial class ChatWindow : Window
         var core = WebView.CoreWebView2;
         core.Settings.AreHostObjectsAllowed = false;
         core.Settings.IsStatusBarEnabled = false;
+        // The login survives restarts (its cookie is in the profile). Should
+        // the session end anyway, the login form fills itself back from
+        // Edge's password store — offered once at login, encrypted for the
+        // Windows user, never handled by this app. Off by default in WebView2.
+        core.Settings.IsPasswordAutosaveEnabled = true;
+        core.Settings.IsGeneralAutofillEnabled = true;
         core.WebMessageReceived += OnWebMessage;
         core.NavigationStarting += OnNavigationStarting;
         // Links ChatGPT opens in a new tab (sources, citations) go to the
-        // system browser. Sign-in popups would too: logging in is out of
-        // scope for now.
+        // system browser.
         core.NewWindowRequested += (_, e) =>
         {
             e.Handled = true;

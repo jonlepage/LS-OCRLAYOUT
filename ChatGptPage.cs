@@ -48,6 +48,8 @@ internal static class ChatGptPage
     private const string ImageInputSelector =
         "input[type=\"file\"][accept*=\"image/png\"], input[type=\"file\"][accept*=\"image\"]";
 
+    // How long a just-loaded page may take to start listening (see SendScript).
+    internal const int PageBootTimeoutMs = 10_000;
     internal const int ImageUploadTimeoutMs = 30_000;
     internal const int SendTimeoutMs = 15_000;
 
@@ -68,7 +70,17 @@ internal static class ChatGptPage
         """;
 
     // Attach the screenshot (optional), type the text, wait for the send
-    // button to come alive, click it. Posts { id, ok, at, imageAttached }.
+    // button to come alive, click it. Posts { id, ok, at, imageAttached,
+    // pastes } — pastes: how many tries the page took to accept the image.
+    //
+    // The composer is server-rendered: it is in the page before the scripts
+    // that listen to it. A send into a document loaded a moment ago — the
+    // second send, after "back to the Prompt Builder", which starts a new
+    // conversation right then — hits that window (measured: the image paste
+    // ignored, the text sent alone 30 s later). The page's paste handler is
+    // what takes the image, and it cancels the event: an uncancelled paste
+    // means nobody listens yet, so paste again. Typed text has no such
+    // signal: when the button stays off, type it again.
     //
     // Order verified on the live page: the image goes first, into an EMPTY
     // composer, because its upload switches the send button off and an image
@@ -121,6 +133,7 @@ internal static class ChatGptPage
             field.focus();
 
             let imageAttached = null;
+            let pastes = 0;
             const image = {{(pngBase64 is null ? "null" : Literal(pngBase64))}};
             if (image !== null) {
               // The upload signal needs an empty composer (see above).
@@ -135,8 +148,18 @@ internal static class ChatGptPage
               for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
               const transfer = new DataTransfer();
               transfer.items.add(new File([bytes], "capture.png", { type: "image/png" }));
-              const handled = !field.dispatchEvent(
-                new ClipboardEvent("paste", { clipboardData: transfer, bubbles: true, cancelable: true }));
+              // Cancelled = taken by the page (see above). A synthetic paste
+              // has no default action: repeating it never pastes twice.
+              const paste = () => {
+                pastes++;
+                return !field.dispatchEvent(
+                  new ClipboardEvent("paste", { clipboardData: transfer, bubbles: true, cancelable: true }));
+              };
+              let handled = paste();
+              for (const until = Date.now() + {{PageBootTimeoutMs}}; !handled && Date.now() < until;) {
+                await sleep(100);
+                handled = paste();
+              }
               if (!handled) {
                 const input = document.querySelector({{Literal(ImageInputSelector)}});
                 if (input) {
@@ -155,7 +178,8 @@ internal static class ChatGptPage
             }
 
             const text = {{Literal(text)}};
-            if (text.length > 0) {
+            // Replaces the whole content: typing it again changes nothing.
+            const type = () => {
               selectAll();
               let typed = false;
               try { typed = document.execCommand("insertText", false, text); } catch (e) { typed = false; }
@@ -172,13 +196,20 @@ internal static class ChatGptPage
                 else field.textContent = text;
                 field.dispatchEvent(new Event("input", { bubbles: true }));
               }
-            }
+            };
+            if (text.length > 0) type();
 
-            const button = await waitFor(sendSelector, {{SendTimeoutMs}});
-            if (!button) return post({ ok: false, at: "send", imageAttached: imageAttached });
+            // Text typed before the page listens is in the field, but the page
+            // doesn't know it and keeps its button off (see above).
+            let button = await waitFor(sendSelector, 500);
+            for (const until = Date.now() + {{SendTimeoutMs}}; !button && Date.now() < until;) {
+              if (text.length > 0) type();
+              button = await waitFor(sendSelector, 500);
+            }
+            if (!button) return post({ ok: false, at: "send", imageAttached: imageAttached, pastes: pastes });
             // Reported BEFORE the click: if sending navigates the page, this
             // script dies with the document and could never report after.
-            post({ ok: true, at: "", imageAttached: imageAttached });
+            post({ ok: true, at: "", imageAttached: imageAttached, pastes: pastes });
             button.click();
           } catch (error) {
             post({ ok: false, at: "script", detail: String(error) });

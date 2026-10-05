@@ -115,6 +115,7 @@ Right-click a prompt for the same actions.
 
 - **Language**: English (en) or Français (fr), applied live to the whole app — overlay, Prompt Builder, ChatGPT window and tray menu. Languages are always shown with their ISO code, readable whatever the current language. The first run follows the Windows display language. Adding a language is one table in `Loc.cs`.
 - **Text size** of the prompt and text boxes (also `Ctrl+wheel`).
+- **Generate an account**: opens [temp-mail.id](https://temp-mail.id) in your browser, a throwaway address to sign up a ChatGPT account with.
 
 Hover the tray icon to see both hotkeys.
 
@@ -129,7 +130,9 @@ The window shows ~60 ms after the hotkey once something is selected (~300 ms mor
 
 ### ChatGPT window
 
-A WebView2 created on the first `Ctrl+Alt+G`, then hidden — never closed. It runs logged out, in a temporary chat (nothing is kept in any history), in a profile of its own (`ScreenSearchOverlay.WebView2/`); the cookie banner is refused automatically. Links in answers open in your browser.
+A WebView2 created on the first `Ctrl+Alt+G`, then hidden — never closed. It always opens a temporary chat (nothing is kept in any history), in a profile of its own (`ScreenSearchOverlay.WebView2/`); the cookie banner is refused automatically. Links in answers open in your browser.
+
+It works logged out, or logged in to a ChatGPT account: log in once in that window and the session survives restarts (it lives in the profile). At login, accept **Save password**: should the session ever end, the login form fills itself back. Passwords are kept by WebView2's own password store, encrypted for your Windows account — the app never handles them. Keep the profile folder to yourself: it holds the session.
 
 Everything the app knows about chatgpt.com — selectors and injected scripts — lives in `ChatGptPage.cs`: when OpenAI changes its page, that is the file to fix. `F12` in the ChatGPT window opens the DevTools. If sending fails, the status strip says at which step.
 
