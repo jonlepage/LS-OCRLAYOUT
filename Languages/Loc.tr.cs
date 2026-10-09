@@ -111,8 +111,7 @@ internal static partial class Loc
         ["chat.failed"] = "Gönderilemedi: {0}",
 
         ["tray.tooltip"] = "Screen Search Overlay\nCtrl+Alt+F  ara\nCtrl+Alt+G  Prompt Builder",
-        ["tray.findHint"] = "Aramak için Ctrl+Alt+F",
-        ["tray.promptHint"] = "Prompt Builder için Ctrl+Alt+G",
+        ["tray.find"] = "Ekranda ara",
         ["tray.ocr"] = "OCR dilleri",
         ["tray.quit"] = "Çık",
         ["app.hotkeyFailed"] = "{0} kaydedilemedi.\nBu kısayolu başka bir program kullanıyor olabilir.",

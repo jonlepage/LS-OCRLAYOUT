@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Windows;
+using System.Windows.Markup;
 
 namespace ScreenSearchOverlay;
 
@@ -164,8 +165,7 @@ internal static partial class Loc
             ["chat.failed"] = "Send failed: {0}",
 
             ["tray.tooltip"] = "Screen Search Overlay\nCtrl+Alt+F  search\nCtrl+Alt+G  Prompt Builder",
-            ["tray.findHint"] = "Ctrl+Alt+F to search",
-            ["tray.promptHint"] = "Ctrl+Alt+G for the Prompt Builder",
+            ["tray.find"] = "Search the screen",
             ["tray.ocr"] = "OCR languages",
             ["tray.quit"] = "Quit",
             ["app.hotkeyFailed"] = "Could not register {0}.\nAnother program may be using this shortcut.",
@@ -326,8 +326,7 @@ internal static partial class Loc
             ["chat.failed"] = "Envoi impossible : {0}",
 
             ["tray.tooltip"] = "Screen Search Overlay\nCtrl+Alt+F  chercher\nCtrl+Alt+G  Prompt Builder",
-            ["tray.findHint"] = "Ctrl+Alt+F pour chercher",
-            ["tray.promptHint"] = "Ctrl+Alt+G pour le Prompt Builder",
+            ["tray.find"] = "Chercher à l'écran",
             ["tray.ocr"] = "Langues OCR",
             ["tray.quit"] = "Quitter",
             ["app.hotkeyFailed"] = "Impossible d'enregistrer {0}.\nUn autre programme utilise peut-être ce raccourci.",
@@ -417,6 +416,7 @@ internal static partial class Loc
         if (!Tables.ContainsKey(code)) code = "en";
         Current = code;
         Culture = CultureFor(code);
+        TagWindows(code);
 
         var dictionary = new ResourceDictionary();
         foreach (var (key, value) in Tables[code])
@@ -438,6 +438,50 @@ internal static partial class Loc
         : key;
 
     internal static string T(string key, params object[] arguments) => string.Format(Culture, T(key), arguments);
+
+    // Japanese, Chinese and Korean share thousands of characters drawn
+    // differently in each (直, 骨, 角…). WPF picks the font for them from the
+    // element's language: without it, Japanese can come out in a Chinese
+    // font. That language is the UI's when it is one of the three, else the
+    // first of them in the user's Windows languages — the text boxes hold
+    // what the user writes, not what the UI says. Latin text is unaffected.
+    // Every window carries it: the open ones now, later ones (the overlay,
+    // each time) as they load.
+    private static bool _tagsNewWindows;
+    private static XmlLanguage _windowLanguage = XmlLanguage.GetLanguage("en");
+
+    private static void TagWindows(string code)
+    {
+        _windowLanguage = XmlLanguage.GetLanguage(HanLanguage(code) ?? code);
+        foreach (Window window in System.Windows.Application.Current.Windows)
+            window.Language = _windowLanguage;
+        if (_tagsNewWindows) return;
+        _tagsNewWindows = true;
+        EventManager.RegisterClassHandler(typeof(Window), FrameworkElement.LoadedEvent, new RoutedEventHandler((sender, _) =>
+        {
+            if (sender is Window window && window.Language != _windowLanguage) window.Language = _windowLanguage;
+        }));
+    }
+
+    // ja, ko, zh-Hans or zh-Hant; null when the user reads none of them.
+    private static string? HanLanguage(string uiCode)
+    {
+        if (uiCode is "ja" or "ko" or "zh-Hans" or "zh-Hant") return uiCode;
+        try
+        {
+            foreach (var tag in Windows.System.UserProfile.GlobalizationPreferences.Languages)
+            {
+                var lower = tag.ToLowerInvariant();
+                if (lower.StartsWith("ja")) return "ja";
+                if (lower.StartsWith("ko")) return "ko";
+                if (lower.StartsWith("zh"))
+                    return lower.Contains("hant") || lower.EndsWith("-tw") || lower.EndsWith("-hk") || lower.EndsWith("-mo")
+                        ? "zh-Hant" : "zh-Hans";
+            }
+        }
+        catch { /* not available: the UI language decides */ }
+        return null;
+    }
 
     // Canadian English and French, as before; the others in their own
     // culture (pt-BR, zh-Hans… are all known to .NET).

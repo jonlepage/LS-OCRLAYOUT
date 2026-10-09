@@ -86,7 +86,8 @@ public partial class App
 
     internal void SavePromptsInBackground() => PromptLibrary.SaveInBackground(GetFilePath(PromptsFileName), Prompts);
 
-    private async void ShowPromptBuilder()
+    // copySelection false: from the tray menu, nothing to copy.
+    private async void ShowPromptBuilder(bool copySelection = true)
     {
         // A second press while we are still copying would fire a second
         // Ctrl+C into the middle of the first.
@@ -112,7 +113,7 @@ public partial class App
                     : null)
                 ?? ScreenCapture.Start();
             if (capture.FromClipboard) _spentClipboardSequence = sequence;
-            var text = await SelectionGrabber.CopySelectionAsync((ushort)VK_G);
+            var text = copySelection ? await SelectionGrabber.CopySelectionAsync((ushort)VK_G) : "";
 
             // ChatGPT loads in the background while a prompt is picked —
             // after the copy, in case the text came from the ChatGPT window.

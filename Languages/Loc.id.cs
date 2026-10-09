@@ -111,8 +111,7 @@ internal static partial class Loc
         ["chat.failed"] = "Gagal mengirim: {0}",
 
         ["tray.tooltip"] = "Screen Search Overlay\nCtrl+Alt+F  cari\nCtrl+Alt+G  Prompt Builder",
-        ["tray.findHint"] = "Ctrl+Alt+F untuk mencari",
-        ["tray.promptHint"] = "Ctrl+Alt+G untuk Prompt Builder",
+        ["tray.find"] = "Cari di layar",
         ["tray.ocr"] = "Bahasa OCR",
         ["tray.quit"] = "Keluar",
         ["app.hotkeyFailed"] = "Tidak dapat mendaftarkan {0}.\nMungkin program lain memakai pintasan ini.",

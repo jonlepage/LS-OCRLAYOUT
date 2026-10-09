@@ -447,14 +447,22 @@
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Template">
                 <Setter.Value>
+                    <!-- A label too long for its place (the settings panel in
+                         Russian, Portuguese…) wraps instead of being cut; the
+                         box stays level with its first line. -->
                     <ControlTemplate TargetType="CheckBox">
-                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                        <Grid Background="Transparent">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
                             <Border x:Name="Box"
                                     Width="16" Height="16"
                                     BorderThickness="1.5"
                                     BorderBrush="{DynamicResource CheckBorder}"
                                     Background="Transparent"
-                                    VerticalAlignment="Center">
+                                    VerticalAlignment="Top"
+                                    Margin="0,1,0,0">
                                 <Path x:Name="Mark"
                                       Data="M 2.5,6.5 L 5.25,9.25 L 10.5,3.5"
                                       Stroke="White"
@@ -466,8 +474,14 @@
                                       VerticalAlignment="Center"
                                       Visibility="Collapsed" />
                             </Border>
-                            <ContentPresenter Margin="9,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
+                            <ContentPresenter Grid.Column="1" Margin="9,0,0,0" VerticalAlignment="Top">
+                                <ContentPresenter.Resources>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextWrapping" Value="Wrap" />
+                                    </Style>
+                                </ContentPresenter.Resources>
+                            </ContentPresenter>
+                        </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource StrongBorder}" />

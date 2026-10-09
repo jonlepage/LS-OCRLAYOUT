@@ -111,8 +111,7 @@ internal static partial class Loc
         ["chat.failed"] = "보내기 실패: {0}",
 
         ["tray.tooltip"] = "Screen Search Overlay\nCtrl+Alt+F  검색\nCtrl+Alt+G  Prompt Builder",
-        ["tray.findHint"] = "Ctrl+Alt+F로 검색",
-        ["tray.promptHint"] = "Ctrl+Alt+G로 Prompt Builder 열기",
+        ["tray.find"] = "화면 검색",
         ["tray.ocr"] = "OCR 언어",
         ["tray.quit"] = "종료",
         ["app.hotkeyFailed"] = "{0}을(를) 등록할 수 없습니다.\n다른 프로그램이 이 단축키를 사용 중일 수 있습니다.",

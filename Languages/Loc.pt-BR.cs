@@ -112,8 +112,7 @@ internal static partial class Loc
         ["chat.failed"] = "Falha no envio: {0}",
 
         ["tray.tooltip"] = "Screen Search Overlay\nCtrl+Alt+F  pesquisar\nCtrl+Alt+G  Prompt Builder",
-        ["tray.findHint"] = "Ctrl+Alt+F para pesquisar",
-        ["tray.promptHint"] = "Ctrl+Alt+G para o Prompt Builder",
+        ["tray.find"] = "Pesquisar na tela",
         ["tray.ocr"] = "Idiomas de OCR",
         ["tray.quit"] = "Sair",
         ["app.hotkeyFailed"] = "Não foi possível registrar {0}.\nOutro programa pode estar usando este atalho.",

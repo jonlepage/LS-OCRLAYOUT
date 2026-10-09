@@ -111,8 +111,7 @@ internal static partial class Loc
         ["chat.failed"] = "发送失败：{0}",
 
         ["tray.tooltip"] = "Screen Search Overlay\nCtrl+Alt+F  搜索\nCtrl+Alt+G  Prompt Builder",
-        ["tray.findHint"] = "按 Ctrl+Alt+F 搜索",
-        ["tray.promptHint"] = "按 Ctrl+Alt+G 打开 Prompt Builder",
+        ["tray.find"] = "搜索屏幕",
         ["tray.ocr"] = "OCR 语言",
         ["tray.quit"] = "退出",
         ["app.hotkeyFailed"] = "无法注册 {0}。\n可能有其他程序正在使用此快捷键。",

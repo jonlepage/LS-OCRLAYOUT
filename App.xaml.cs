@@ -49,8 +49,8 @@ public partial class App : Application
     internal string ThemeName { get; set; } = Theme.Dark;
 
     // Tray items whose text follows the UI language.
-    private Forms.ToolStripItem? _trayFindHint;
-    private Forms.ToolStripItem? _trayPromptHint;
+    private Forms.ToolStripMenuItem? _trayFind;
+    private Forms.ToolStripMenuItem? _trayLanguageMenu;
     private Forms.ToolStripMenuItem? _trayOcrMenu;
     private Forms.ToolStripItem? _trayQuit;
 
@@ -121,11 +121,29 @@ public partial class App : Application
             ShortcutKeyDisplayString = $"v{Updater.Current}",
         });
         menu.Items.Add(new Forms.ToolStripSeparator());
-        _trayFindHint = menu.Items.Add("");
-        _trayFindHint.Enabled = false;
-        _trayPromptHint = menu.Items.Add("");
-        _trayPromptHint.Enabled = false;
+        // The two tools, a click away; their hotkey right-aligned.
+        _trayFind = new Forms.ToolStripMenuItem("", null, (_, _) => ShowOverlayFromTray())
+        {
+            ShortcutKeyDisplayString = "Ctrl+Alt+F",
+        };
+        menu.Items.Add(_trayFind);
+        menu.Items.Add(new Forms.ToolStripMenuItem("Prompt Builder", null, (_, _) => ShowPromptBuilderFromTray())
+        {
+            ShortcutKeyDisplayString = "Ctrl+Alt+G",
+        });
         menu.Items.Add(new Forms.ToolStripSeparator());
+
+        // UI language: each one in its own name, its code right-aligned.
+        _trayLanguageMenu = new Forms.ToolStripMenuItem();
+        foreach (var language in Loc.Languages)
+        {
+            _trayLanguageMenu.DropDownItems.Add(new Forms.ToolStripMenuItem(language.Name, null, (_, _) => SetLanguage(language.Code))
+            {
+                Tag = language.Code,
+                ShortcutKeyDisplayString = language.Code,
+            });
+        }
+        menu.Items.Add(_trayLanguageMenu);
 
         // OCR Languages submenu
         var langMenu = new Forms.ToolStripMenuItem();
@@ -167,14 +185,34 @@ public partial class App : Application
 
     private void UpdateTrayTexts()
     {
-        if (_trayFindHint is null) return;
+        if (_trayFind is null) return;
         // Both hotkeys on hover, not just the overlay's (127 characters max).
         _trayIcon!.Text = Loc.T("tray.tooltip");
-        _trayFindHint.Text = Loc.T("tray.findHint");
-        _trayPromptHint!.Text = Loc.T("tray.promptHint");
+        _trayFind.Text = Loc.T("tray.find");
+        _trayLanguageMenu!.Text = Loc.T("pb.settings.languageRow");
+        foreach (Forms.ToolStripMenuItem item in _trayLanguageMenu.DropDownItems)
+            item.Checked = (string)item.Tag! == Loc.Current;
         _trayOcrMenu!.Text = Loc.T("tray.ocr");
         _trayQuit!.Text = Loc.T("tray.quit");
         RefreshTrayUpdate();
+    }
+
+    // A click in the tray menu: the menu fades out first, so the capture
+    // shows the screen, not the menu.
+    private const int TrayMenuFadeMs = 200;
+
+    private async void ShowOverlayFromTray()
+    {
+        await Task.Delay(TrayMenuFadeMs);
+        ShowOverlay();
+    }
+
+    // No selection to copy from the tray: a Ctrl+C would land in whatever
+    // window is behind it (a terminal would stop its command).
+    private async void ShowPromptBuilderFromTray()
+    {
+        await Task.Delay(TrayMenuFadeMs);
+        ShowPromptBuilder(copySelection: false);
     }
 
     internal void SetTheme(string name)

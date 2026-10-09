@@ -111,8 +111,7 @@ internal static partial class Loc
         ["chat.failed"] = "送信できませんでした: {0}",
 
         ["tray.tooltip"] = "Screen Search Overlay\nCtrl+Alt+F  検索\nCtrl+Alt+G  Prompt Builder",
-        ["tray.findHint"] = "Ctrl+Alt+F で検索",
-        ["tray.promptHint"] = "Ctrl+Alt+G で Prompt Builder",
+        ["tray.find"] = "画面を検索",
         ["tray.ocr"] = "OCR 言語",
         ["tray.quit"] = "終了",
         ["app.hotkeyFailed"] = "{0} を登録できませんでした。\n別のプログラムがこのショートカットを使用している可能性があります。",

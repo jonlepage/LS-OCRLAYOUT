@@ -9,11 +9,11 @@ namespace ScreenSearchOverlay;
 // form, for free. The overlay puts its image in the clipboard; this waits
 // for it. UI thread: the clipboard needs STA.
 //
-// Windows says nothing when the user cancels (Esc). The overlay's process
-// closing without an image is that signal: ScreenClippingHost on Windows 10,
-// SnippingTool on recent Windows 11. A SnippingTool already running before
-// the click may linger after a cancel: the wait then ends on the timeout, or
-// as soon as the caller gives up (Ctrl+Alt+G brought its window back).
+// Windows says nothing when the user cancels (Esc). The overlay closing
+// without an image is that signal — its process ending (ScreenClippingHost
+// on Windows 10), or it leaving the foreground (SnippingTool on Windows 11,
+// which may stay running). The timeout and the caller giving up (Ctrl+Alt+G
+// brought its window back) are the last resorts.
 internal static partial class RegionSnip
 {
     private const string SnipUri = "ms-screenclip:";
@@ -38,6 +38,7 @@ internal static partial class RegionSnip
         bool NewImage() => SelectionGrabber.ClipboardSequence != before && HasImage();
 
         var seen = new HashSet<int>();
+        var overlayWasInFront = false;
         var watch = Stopwatch.StartNew();
         while (watch.ElapsedMilliseconds < TimeoutMs && !abandoned())
         {
@@ -48,10 +49,15 @@ internal static partial class RegionSnip
                 return true;
             }
 
-            var open = OverlayIds();
-            open.ExceptWith(alreadyRunning);
-            seen.UnionWith(open);
-            if (seen.Count > 0 && open.Count == 0)
+            // Two signs of an end without an image: the overlay's process
+            // closed (Windows 10), or the overlay left the foreground — which
+            // also covers a SnippingTool that stays running (Windows 11).
+            var overlays = OverlayIds();
+            var inFront = overlays.Contains(ForegroundProcessId());
+            overlayWasInFront |= inFront;
+            overlays.ExceptWith(alreadyRunning);
+            seen.UnionWith(overlays);
+            if ((seen.Count > 0 && overlays.Count == 0) || (overlayWasInFront && !inFront))
             {
                 await Task.Delay(LastImageGraceMs);
                 var taken = NewImage();
@@ -70,10 +76,15 @@ internal static partial class RegionSnip
         var watch = Stopwatch.StartNew();
         while (watch.ElapsedMilliseconds < OverlayCloseTimeoutMs)
         {
-            GetWindowThreadProcessId(GetForegroundWindow(), out var foregroundId);
-            if (!OverlayIds().Contains((int)foregroundId)) return;
+            if (!OverlayIds().Contains(ForegroundProcessId())) return;
             await Task.Delay(PollMs / 2);
         }
+    }
+
+    private static int ForegroundProcessId()
+    {
+        GetWindowThreadProcessId(GetForegroundWindow(), out var id);
+        return (int)id;
     }
 
     private static HashSet<int> OverlayIds()

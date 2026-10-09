@@ -111,8 +111,7 @@ internal static partial class Loc
         ["chat.failed"] = "Gửi thất bại: {0}",
 
         ["tray.tooltip"] = "Screen Search Overlay\nCtrl+Alt+F  tìm kiếm\nCtrl+Alt+G  Prompt Builder",
-        ["tray.findHint"] = "Ctrl+Alt+F để tìm kiếm",
-        ["tray.promptHint"] = "Ctrl+Alt+G để mở Prompt Builder",
+        ["tray.find"] = "Tìm trên màn hình",
         ["tray.ocr"] = "Ngôn ngữ OCR",
         ["tray.quit"] = "Thoát",
         ["app.hotkeyFailed"] = "Không thể đăng ký {0}.\nCó thể chương trình khác đang dùng phím tắt này.",
