@@ -984,6 +984,30 @@
 
                         <Border Height="1" Background="{DynamicResource PopupBorder}" Margin="2,10" />
 
+                        <TextBlock Text="{DynamicResource pb.settings.agents}" Style="{StaticResource SectionLabel}" Margin="8,0,8,8" />
+                        <CheckBox x:Name="McpOption"
+                                  Margin="8,0,8,0"
+                                  Content="{DynamicResource pb.settings.mcp}"
+                                  ToolTip="{DynamicResource pb.settings.mcp.tip}"
+                                  Checked="McpOption_Changed"
+                                  Unchecked="McpOption_Changed" />
+                        <Button Style="{StaticResource MenuRowButton}" Margin="0,6,0,0" Click="McpHelp_Click">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="22" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="&#xE943;"
+                                           FontFamily="{StaticResource IconFont}"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource AccentSoft}"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="{DynamicResource pb.settings.mcpHelp}" VerticalAlignment="Center" />
+                            </Grid>
+                        </Button>
+
+                        <Border Height="1" Background="{DynamicResource PopupBorder}" Margin="2,10" />
+
                         <!-- Filled by RefreshUpdateRow, from the app-wide update state. -->
                         <TextBlock Text="{DynamicResource pb.settings.updates}" Style="{StaticResource SectionLabel}" Margin="8,0,8,6" />
                         <TextBlock x:Name="UpdateStatus"
@@ -1285,6 +1309,91 @@
                         </Button>
                     </StackPanel>
                 </Grid>
+            </Border>
+
+            <!-- ── MCP setup dialog (RefreshMcpDialog fills it) ── -->
+            <Border x:Name="McpDialog"
+                    Grid.RowSpan="3"
+                    Background="#99000000"
+                    Visibility="Collapsed"
+                    MouseLeftButtonDown="McpDialogBackdrop_MouseLeftButtonDown">
+                <Border Width="560"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Background="{DynamicResource PopupBg}"
+                        BorderBrush="{DynamicResource PopupBorder}"
+                        BorderThickness="1"
+                        MouseLeftButtonDown="McpDialogCard_MouseLeftButtonDown">
+                    <StackPanel>
+                        <Grid Background="{DynamicResource ChromeBg}">
+                            <TextBlock Text="{DynamicResource mcp.title}"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
+                                       Margin="12,0" />
+                            <Button Style="{StaticResource CloseButton}"
+                                    Height="28"
+                                    HorizontalAlignment="Right"
+                                    Content="&#xE8BB;"
+                                    ToolTip="{DynamicResource mcp.close}"
+                                    Click="McpDialogClose_Click" />
+                        </Grid>
+                        <StackPanel Margin="12,10,12,12">
+                            <TextBlock x:Name="McpStatus" TextWrapping="Wrap" Margin="0,0,0,8" />
+                            <TextBlock Text="{DynamicResource mcp.intro}" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,10" />
+
+                            <TextBlock Text="{DynamicResource mcp.claudeCode}" Style="{StaticResource SectionLabel}" Margin="0,0,0,4" />
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="McpCommand"
+                                         Style="{StaticResource InputBox}"
+                                         FontFamily="Consolas"
+                                         FontSize="12"
+                                         Padding="6,5"
+                                         IsReadOnly="True" />
+                                <Button Grid.Column="1"
+                                        Style="{StaticResource IconButton}"
+                                        BorderBrush="{DynamicResource InputBorder}"
+                                        Height="Auto"
+                                        Margin="4,0,0,0"
+                                        Content="&#xE8C8;"
+                                        ToolTip="{DynamicResource mcp.copy}"
+                                        Tag="{Binding Text, ElementName=McpCommand}"
+                                        Click="McpCopy_Click" />
+                            </Grid>
+
+                            <TextBlock Text="{DynamicResource mcp.json}" Style="{StaticResource SectionLabel}" Margin="0,0,0,4" />
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="McpJson"
+                                         Style="{StaticResource InputBox}"
+                                         FontFamily="Consolas"
+                                         FontSize="12"
+                                         Padding="6,5"
+                                         IsReadOnly="True"
+                                         AcceptsReturn="True" />
+                                <Button Grid.Column="1"
+                                        Style="{StaticResource IconButton}"
+                                        BorderBrush="{DynamicResource InputBorder}"
+                                        Height="Auto"
+                                        VerticalAlignment="Stretch"
+                                        Margin="4,0,0,0"
+                                        Content="&#xE8C8;"
+                                        ToolTip="{DynamicResource mcp.copy}"
+                                        Tag="{Binding Text, ElementName=McpJson}"
+                                        Click="McpCopy_Click" />
+                            </Grid>
+
+                            <TextBlock Text="{DynamicResource mcp.note}" TextWrapping="Wrap" Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
             </Border>
         </Grid>
     </Border>

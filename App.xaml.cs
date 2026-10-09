@@ -209,6 +209,7 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         TeardownUpdates();
+        StopMcp();
         if (_hwndSource != null)
         {
             UnregisterHotKey(_hwndSource.Handle, HOTKEY_ID);
@@ -345,7 +346,7 @@ public partial class App : Application
                         TranslateTarget = target;
                     if (data.TryGetValue("language", out var language) && !string.IsNullOrWhiteSpace(language))
                         Language = language;
-                    if (data.TryGetValue("theme", out var theme) && !string.IsNullOrWhiteSpace(theme))
+                    if (data.TryGetValue("theme", out var theme) && Theme.Names.Contains(theme))
                         ThemeName = theme;
                     if (data.TryGetValue("checkUpdates", out var checkUpdates) && bool.TryParse(checkUpdates, out var check))
                         CheckUpdatesAutomatically = check;

@@ -205,6 +205,9 @@ public partial class App
             PromptTextSize = textSize[0];
         if (data.TryGetValue("chatTemporary", out var temporary) && bool.TryParse(temporary, out var isTemporary))
             ChatTemporary = isTemporary;
+        // 1.5.2 had a single option: it carries over to both.
+        if (data.TryGetValue("chatAutoSend", out var autoSend) && bool.TryParse(autoSend, out var isAutoSend))
+            ChatAutoSendText = ChatAutoSendImage = isAutoSend;
         if (data.TryGetValue("chatAutoSendText", out var autoText) && bool.TryParse(autoText, out var isAutoText))
             ChatAutoSendText = isAutoText;
         if (data.TryGetValue("chatAutoSendImage", out var autoImage) && bool.TryParse(autoImage, out var isAutoImage))

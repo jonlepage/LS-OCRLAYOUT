@@ -51,6 +51,16 @@ Select text anywhere, press **Ctrl+Alt+G**, pick a prompt, **Send**. ChatGPT ope
 
 Prompts are edited in place and saved as you type. **⚙** holds the language (English / Français), the theme (dark / light / Night Dev / VS Code), temporary chat, automatic send (text / with an image), clipboard image first (use your Win+Shift+S capture instead of a new screenshot), text size and updates.
 
+### Add prompts from an AI agent (MCP)
+
+Tick **⚙ > MCP server**: the window shows the line to give your agent once, e.g. for Claude Code:
+
+```
+claude mcp add --scope user --transport http ls-ocrlayout http://localhost:47821/mcp
+```
+
+Then ask the agent "add a prompt that…": it appears in the Prompt Builder right away. The agent can list, add and edit prompts, never delete them. The server only answers this computer and is off at every start.
+
 ## Privacy
 
 Nothing leaves your machine while you search. **文A** sends the screen's text to Google Translate; **Send** sends your message (and screenshot) to ChatGPT. Your ChatGPT login stays in `ScreenSearchOverlay.WebView2/`, next to the exe.

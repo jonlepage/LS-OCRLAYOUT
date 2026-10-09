@@ -97,6 +97,7 @@ public partial class PromptWindow : Window
         Loc.Changed += OnLanguageChanged;
         Theme.Changed += OnThemeChanged;
         _app.UpdateChanged += RefreshUpdateRow;
+        _app.McpChanged += RefreshMcp;
 
         RestoreLayout();
         BuildSwatches();
@@ -482,6 +483,7 @@ public partial class PromptWindow : Window
         CharCount.Text = BodyBox.Text.Length == 0 ? "" : Loc.Characters(BodyBox.Text.Length);
         TextSizeValue.Text = PromptBox.FontSize.ToString("0.#", Loc.Culture);
         RefreshUpdateRow();
+        RefreshMcpDialog();
         // The new texts change the hint's and the total's widths: refit once laid out.
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, FitHint);
     }
@@ -552,6 +554,79 @@ public partial class PromptWindow : Window
         _app.ClipboardImageFirst = ClipboardImageOption.IsChecked == true;
         _app.CheckUpdatesAutomatically = AutoUpdateOption.IsChecked == true;
         _app.SaveSettings();
+    }
+
+    // ── MCP server (App.Mcp) ──
+
+    private bool _syncingMcp;
+
+    // On: the server starts and the setup dialog shows the lines to give the
+    // agent. Off at every start of the app, never saved.
+    private void McpOption_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_view is null || _syncingMcp) return;
+        var enabled = McpOption.IsChecked == true;
+        _app.SetMcpEnabled(enabled);
+        if (enabled) ShowMcpDialog();
+    }
+
+    private void McpHelp_Click(object sender, RoutedEventArgs e) => ShowMcpDialog();
+
+    // The checkbox follows the server: a start that failed (port taken)
+    // unticks it, and the dialog says why.
+    private void RefreshMcp()
+    {
+        _syncingMcp = true;
+        McpOption.IsChecked = _app.McpEnabled;
+        _syncingMcp = false;
+        RefreshMcpDialog();
+    }
+
+    private void ShowMcpDialog()
+    {
+        SettingsPopup.IsOpen = false;
+        RefreshMcpDialog();
+        McpDialog.Visibility = Visibility.Visible;
+    }
+
+    private void RefreshMcpDialog()
+    {
+        var url = _app.McpUrl;
+        McpCommand.Text = $"claude mcp add --scope user --transport http {McpServer.ServerName} {url}";
+        McpJson.Text = $$"""
+            {
+              "mcpServers": {
+                "{{McpServer.ServerName}}": {
+                  "type": "http",
+                  "url": "{{url}}"
+                }
+              }
+            }
+            """;
+        (McpStatus.Text, var color) = _app.McpError is { } error
+            ? (Loc.T("mcp.failed", McpServer.DefaultPort, error), "Danger")
+            : _app.McpEnabled
+                ? (Loc.T("mcp.running", McpServer.DefaultPort), "StatusSuccess")
+                : (Loc.T("mcp.stopped"), "TextMuted");
+        McpStatus.SetResourceReference(TextBlock.ForegroundProperty, color);
+    }
+
+    private void McpDialogClose_Click(object sender, RoutedEventArgs e) => McpDialog.Visibility = Visibility.Collapsed;
+
+    private void McpDialogBackdrop_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) =>
+        McpDialog.Visibility = Visibility.Collapsed;
+
+    // A click in the card is not a click on the backdrop behind it.
+    private void McpDialogCard_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) => e.Handled = true;
+
+    // The copy icon turns into a check for a moment.
+    private async void McpCopy_Click(object sender, RoutedEventArgs e)
+    {
+        var button = (Button)sender;
+        try { System.Windows.Clipboard.SetText((string)button.Tag); } catch { return; }
+        button.Content = "\uE73E";
+        await Task.Delay(1200);
+        button.Content = "\uE8C8";
     }
 
     // The popup stays open: it shows the check's result, then the download.
@@ -642,6 +717,9 @@ public partial class PromptWindow : Window
 
         switch (key)
         {
+            case Key.Escape when none && McpDialog.Visibility == Visibility.Visible:
+                McpDialog.Visibility = Visibility.Collapsed;
+                break;
             case Key.Escape when none && SettingsPopup.IsOpen:
                 SettingsPopup.IsOpen = false;
                 break;
