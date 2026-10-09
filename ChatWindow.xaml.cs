@@ -307,6 +307,7 @@ public partial class ChatWindow : Window
                 "prompt" => Loc.T("chat.noComposer"),
                 "send" => Loc.T("chat.sendNeverReady"),
                 "navigated" => Loc.T("chat.navigated"),
+                "crashed" => Loc.T("chat.crashed"),
                 _ => Loc.T("chat.pageError", (result.TryGetProperty("detail", out var detail) ? detail.GetString() : at) ?? ""),
             });
     }
@@ -336,6 +337,7 @@ public partial class ChatWindow : Window
         core.Settings.IsGeneralAutofillEnabled = true;
         core.WebMessageReceived += OnWebMessage;
         core.NavigationStarting += OnNavigationStarting;
+        core.ProcessFailed += OnProcessFailed;
         // Links ChatGPT opens in a new tab (sources, citations) go to the
         // system browser.
         core.NewWindowRequested += (_, e) =>
@@ -423,6 +425,58 @@ public partial class ChatWindow : Window
 
     private static readonly JsonElement NavigatedAway =
         JsonDocument.Parse("""{"ok":false,"at":"navigated"}""").RootElement.Clone();
+
+    private static readonly JsonElement Crashed =
+        JsonDocument.Parse("""{"ok":false,"at":"crashed"}""").RootElement.Clone();
+
+    // ── Recovery ──
+
+    // WebView2's processes can die under the app: killed by a cleanup script
+    // (taskkill msedgewebview2.exe), out of memory, a GPU driver reset. The
+    // page then shows an error for good. A dead page process is reloaded; a
+    // dead browser process takes the whole control with it, so the control
+    // is replaced by a fresh one. Either way the next send starts from a new
+    // conversation — no restart of the app needed.
+    private void OnProcessFailed(object? sender, CoreWebView2ProcessFailedEventArgs e)
+    {
+        foreach (var waiting in _pending.Values.ToList())
+            waiting.TrySetResult(Crashed);
+        _pristine = false;
+
+        switch (e.ProcessFailedKind)
+        {
+            case CoreWebView2ProcessFailedKind.BrowserProcessExited:
+                // Not from inside the dying control's own event.
+                Dispatcher.BeginInvoke(ReplaceWebView);
+                break;
+            case CoreWebView2ProcessFailedKind.RenderProcessExited:
+            case CoreWebView2ProcessFailedKind.RenderProcessUnresponsive:
+            case CoreWebView2ProcessFailedKind.FrameRenderProcessExited:
+                if (IsVisible && !_sending) Preheat();
+                break;
+        }
+    }
+
+    private void ReplaceWebView()
+    {
+        var old = WebView;
+        var host = (System.Windows.Controls.Grid)old.Parent;
+        var index = host.Children.IndexOf(old);
+        host.Children.Remove(old);
+        try { old.Dispose(); } catch { }
+
+        var fresh = new Microsoft.Web.WebView2.Wpf.WebView2();
+        System.Windows.Controls.Grid.SetRow(fresh, System.Windows.Controls.Grid.GetRow(old));
+        host.Children.Insert(index, fresh);
+        WebView = fresh;
+        ApplyThemeToPage();
+
+        _initialization = null;
+        _preheat = null;
+        _preparedTemporary = null;
+        _themeScriptId = null;
+        if (IsVisible && !_sending) Preheat();
+    }
 
     // ── Status strip ──
 
