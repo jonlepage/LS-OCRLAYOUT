@@ -68,6 +68,7 @@ internal static partial class Loc
         ["pb.tip.up"] = "위로 이동 (Alt+↑)",
         ["pb.tip.down"] = "아래로 이동 (Alt+↓)",
         ["pb.tip.duplicate"] = "복제 (Ctrl+D)",
+        ["pb.tip.restore"] = "원래대로 복원",
         ["pb.tip.delete"] = "삭제 (목록에서 Del)",
         ["pb.tip.splitter"] = "끌어서 크기 조절",
         ["pb.name.placeholder"] = "프롬프트 이름 (선택)",

@@ -68,6 +68,7 @@ internal static partial class Loc
         ["pb.tip.up"] = "Di chuyển lên (Alt+↑)",
         ["pb.tip.down"] = "Di chuyển xuống (Alt+↓)",
         ["pb.tip.duplicate"] = "Nhân bản (Ctrl+D)",
+        ["pb.tip.restore"] = "Khôi phục bản gốc",
         ["pb.tip.delete"] = "Xóa (Del trong danh sách)",
         ["pb.tip.splitter"] = "Kéo để đổi kích thước",
         ["pb.name.placeholder"] = "Tên prompt (không bắt buộc)",

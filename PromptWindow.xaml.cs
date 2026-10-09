@@ -332,7 +332,18 @@ public partial class PromptWindow : Window
         PromptBox.IsEnabled = hasSelection;
         PromptActions.IsEnabled = hasSelection;
         RefreshSwatches();
+        RefreshRestore();
         UpdateComposerState();
+    }
+
+    private void RefreshRestore() =>
+        RestoreButton.Visibility = Selected is { } prompt && StarterPrompts.CanRestore(prompt, Loc.Current)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+    private void Restore_Click(object sender, RoutedEventArgs e)
+    {
+        if (Selected is { } prompt) StarterPrompts.Restore(prompt, Loc.Current);
     }
 
     private static string Truncate(string text, int length) =>
@@ -752,7 +763,11 @@ public partial class PromptWindow : Window
         switch (e.PropertyName)
         {
             case nameof(SavedPrompt.Prompt):
-                if (sender == Selected) UpdateComposerState();
+                if (sender == Selected)
+                {
+                    UpdateComposerState();
+                    RefreshRestore();
+                }
                 SaveSoon();
                 break;
             case nameof(SavedPrompt.TitleColor):
@@ -760,6 +775,7 @@ public partial class PromptWindow : Window
                 SaveSoon();
                 break;
             case nameof(SavedPrompt.Name):
+                if (sender == Selected) RefreshRestore();
                 SaveSoon();
                 break;
         }

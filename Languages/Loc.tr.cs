@@ -68,6 +68,7 @@ internal static partial class Loc
         ["pb.tip.up"] = "Yukarı taşı (Alt+↑)",
         ["pb.tip.down"] = "Aşağı taşı (Alt+↓)",
         ["pb.tip.duplicate"] = "Çoğalt (Ctrl+D)",
+        ["pb.tip.restore"] = "Orijinali geri yükle",
         ["pb.tip.delete"] = "Sil (listede Del)",
         ["pb.tip.splitter"] = "Boyutlandırmak için sürükle",
         ["pb.name.placeholder"] = "İstem adı (isteğe bağlı)",

@@ -70,6 +70,7 @@ internal static partial class Loc
         ["pb.tip.up"] = "上移 (Alt+↑)",
         ["pb.tip.down"] = "下移 (Alt+↓)",
         ["pb.tip.duplicate"] = "再製 (Ctrl+D)",
+        ["pb.tip.restore"] = "還原為原始版本",
         ["pb.tip.delete"] = "刪除（在清單中按 Del）",
         ["pb.tip.splitter"] = "拖曳以調整大小",
         ["pb.name.placeholder"] = "提示詞名稱（選填）",

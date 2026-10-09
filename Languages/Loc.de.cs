@@ -68,6 +68,7 @@ internal static partial class Loc
         ["pb.tip.up"] = "Nach oben (Alt+↑)",
         ["pb.tip.down"] = "Nach unten (Alt+↓)",
         ["pb.tip.duplicate"] = "Duplizieren (Strg+D)",
+        ["pb.tip.restore"] = "Original wiederherstellen",
         ["pb.tip.delete"] = "Löschen (Entf in der Liste)",
         ["pb.tip.splitter"] = "Ziehen zum Ändern der Größe",
         ["pb.name.placeholder"] = "Name des Prompts (optional)",

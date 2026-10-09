@@ -68,6 +68,7 @@ internal static partial class Loc
         ["pb.tip.up"] = "Przenieś w górę (Alt+↑)",
         ["pb.tip.down"] = "Przenieś w dół (Alt+↓)",
         ["pb.tip.duplicate"] = "Duplikuj (Ctrl+D)",
+        ["pb.tip.restore"] = "Przywróć oryginał",
         ["pb.tip.delete"] = "Usuń (Del na liście)",
         ["pb.tip.splitter"] = "Przeciągnij, aby zmienić rozmiar",
         ["pb.name.placeholder"] = "Nazwa promptu (opcjonalnie)",

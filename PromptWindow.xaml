@@ -1233,6 +1233,13 @@
                             <Button Style="{StaticResource IconButton}" Content="&#xE74A;" ToolTip="{DynamicResource pb.tip.up}" Click="MoveUp_Click" />
                             <Button Style="{StaticResource IconButton}" Content="&#xE74B;" ToolTip="{DynamicResource pb.tip.down}" Click="MoveDown_Click" />
                             <Button Style="{StaticResource IconButton}" Content="&#xE8C8;" ToolTip="{DynamicResource pb.tip.duplicate}" Click="Duplicate_Click" />
+                            <!-- An edited starter prompt only (RefreshRestore). -->
+                            <Button x:Name="RestoreButton"
+                                    Style="{StaticResource IconButton}"
+                                    Content="&#xE7A7;"
+                                    ToolTip="{DynamicResource pb.tip.restore}"
+                                    Visibility="Collapsed"
+                                    Click="Restore_Click" />
                             <Button Style="{StaticResource DangerIconButton}" Content="&#xE74D;" ToolTip="{DynamicResource pb.tip.delete}" Click="Delete_Click" />
                         </StackPanel>
                     </Grid>

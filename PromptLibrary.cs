@@ -34,6 +34,11 @@ public sealed class SavedPrompt : INotifyPropertyChanged
         set { if (_prompt == value) return; _prompt = value; Notify(nameof(Prompt), nameof(DisplayName), nameof(Preview)); }
     }
 
+    // One of the starter prompts (StarterPrompts), by key; null for the
+    // user's own. Kept once edited: "Restore the original" uses it.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Starter { get; set; }
+
     // "#RRGGBB" picked from the palette, "" for the default text color. The
     // title wears it in the editor and in the list: prompts are told apart
     // by color at a glance.
@@ -127,17 +132,18 @@ internal static class PromptLibrary
         try
         {
             if (!File.Exists(path))
-                return new(Defaults(language));
+                return new(StarterPrompts.Create(language));
 
-            var loaded = JsonSerializer.Deserialize<List<SavedPrompt>>(File.ReadAllText(path), JsonOptions);
-            return new(loaded ?? []);
+            var loaded = JsonSerializer.Deserialize<List<SavedPrompt>>(File.ReadAllText(path), JsonOptions) ?? [];
+            StarterPrompts.Recognize(loaded);
+            return new(loaded);
         }
         catch
         {
             // A file we cannot read is set aside rather than overwritten by
             // the next save: hand edits are never lost silently.
             try { File.Copy(path, path + ".bak", overwrite: true); } catch { }
-            return new(Defaults(language));
+            return new(StarterPrompts.Create(language));
         }
     }
 
@@ -190,24 +196,4 @@ internal static class PromptLibrary
         if (t.Length == 0) return p;
         return p + "\n\n" + t;
     }
-
-    private static IEnumerable<SavedPrompt> Defaults(string language) => language == "fr"
-        ?
-        [
-            new() { Name = "Corriger", Prompt = "Corrige l'orthographe, la grammaire et la ponctuation de ce texte sans changer le style ni le sens. Réponds uniquement avec le texte corrigé :" },
-            new() { Name = "Corriger et traduire en anglais", Prompt = "Corrige ce texte, puis traduis-le en anglais naturel. Réponds uniquement avec la traduction :" },
-            new() { Name = "Traduire en français", Prompt = "Traduis ce texte en français (Québec), de façon naturelle et fidèle. Réponds uniquement avec la traduction :" },
-            new() { Name = "Expliquer", Prompt = "Explique-moi ce texte simplement, en quelques phrases :" },
-            new() { Name = "Résumer", Prompt = "Résume ce texte en points clés :" },
-            new() { Name = "Reformuler", Prompt = "Reformule ce texte pour qu'il soit plus clair et plus professionnel, en gardant le même sens :" },
-        ]
-        :
-        [
-            new() { Name = "Fix", Prompt = "Fix the spelling, grammar and punctuation of this text without changing its style or meaning. Reply only with the corrected text:" },
-            new() { Name = "Fix and translate to French", Prompt = "Fix this text, then translate it into natural French. Reply only with the translation:" },
-            new() { Name = "Translate to English", Prompt = "Translate this text into natural, faithful English. Reply only with the translation:" },
-            new() { Name = "Explain", Prompt = "Explain this text simply, in a few sentences:" },
-            new() { Name = "Summarize", Prompt = "Summarize this text as key points:" },
-            new() { Name = "Rephrase", Prompt = "Rephrase this text to make it clearer and more professional, keeping the same meaning:" },
-        ];
 }

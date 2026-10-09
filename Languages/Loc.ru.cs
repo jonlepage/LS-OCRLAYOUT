@@ -68,6 +68,7 @@ internal static partial class Loc
         ["pb.tip.up"] = "Переместить вверх (Alt+↑)",
         ["pb.tip.down"] = "Переместить вниз (Alt+↓)",
         ["pb.tip.duplicate"] = "Дублировать (Ctrl+D)",
+        ["pb.tip.restore"] = "Восстановить исходный вариант",
         ["pb.tip.delete"] = "Удалить (Del в списке)",
         ["pb.tip.splitter"] = "Перетащите, чтобы изменить размер",
         ["pb.name.placeholder"] = "Название промпта (необязательно)",

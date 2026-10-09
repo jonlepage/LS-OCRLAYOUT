@@ -68,6 +68,7 @@ internal static partial class Loc
         ["pb.tip.up"] = "上へ移動 (Alt+↑)",
         ["pb.tip.down"] = "下へ移動 (Alt+↓)",
         ["pb.tip.duplicate"] = "複製 (Ctrl+D)",
+        ["pb.tip.restore"] = "元の状態に戻す",
         ["pb.tip.delete"] = "削除 (一覧で Del)",
         ["pb.tip.splitter"] = "ドラッグしてサイズを変更",
         ["pb.name.placeholder"] = "プロンプト名 (任意)",

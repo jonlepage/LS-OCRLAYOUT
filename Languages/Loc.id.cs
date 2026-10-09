@@ -68,6 +68,7 @@ internal static partial class Loc
         ["pb.tip.up"] = "Pindah ke atas (Alt+↑)",
         ["pb.tip.down"] = "Pindah ke bawah (Alt+↓)",
         ["pb.tip.duplicate"] = "Duplikat (Ctrl+D)",
+        ["pb.tip.restore"] = "Pulihkan aslinya",
         ["pb.tip.delete"] = "Hapus (Del di daftar)",
         ["pb.tip.splitter"] = "Seret untuk mengubah ukuran",
         ["pb.name.placeholder"] = "Nama prompt (opsional)",

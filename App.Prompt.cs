@@ -54,6 +54,12 @@ public partial class App
     private void SetupPromptBuilder(IntPtr hotkeyHost)
     {
         Prompts = PromptLibrary.Load(GetFilePath(PromptsFileName), Loc.Current);
+        // Untouched starter prompts speak the UI language, now and after a change.
+        if (StarterPrompts.Localize(Prompts, Loc.Current)) SavePromptsInBackground();
+        Loc.Changed += () =>
+        {
+            if (StarterPrompts.Localize(Prompts, Loc.Current)) SavePromptsInBackground();
+        };
 
         if (!RegisterHotKey(hotkeyHost, PROMPT_HOTKEY_ID, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_G))
         {
