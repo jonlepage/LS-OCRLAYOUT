@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- **Themes** (⚙ > Theme): **Light** (soft greys, easy on the eyes), **Night Dev** (dark, orange and fuchsia) and **VS Code** (the editor's dark colors). ChatGPT follows. Dark stays the default.
+- Language and theme are submenus in ⚙.
+- **Clipboard image first** (⚙): an image in the clipboard (Win+Shift+S…) is used instead of a new screenshot, and attached.
+- **Automatic send** split in two: text alone, and with an image.
+- **What's new** link in ⚙.
+- Fixed: the last selected prompt was not restored at startup.
+- One window at a time: the Prompt Builder and ChatGPT no longer stay open on top of each other.
+- Only one instance runs: launching it again shows a reminder instead of a second copy (which could not get the hotkeys and overwrote the settings).
+
 ## 1.5.2
 
 - **Automatic updates**: checked at startup, at most once a day. A newer version shows in the Prompt Builder's title bar; one click downloads, installs and restarts.

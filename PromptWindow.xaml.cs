@@ -22,7 +22,7 @@ using Size = System.Windows.Size;
 
 namespace ScreenSearchOverlay;
 
-// A language of the settings panel.
+// A language or a theme of the settings panel.
 public sealed record LanguageRow(string Code, string Label, bool IsCurrent);
 
 // Saved prompts on the left, the text to send on the right. The selected
@@ -47,6 +47,7 @@ public partial class PromptWindow : Window
 
     // Settings panel, "Generate an account": a throwaway address to sign up with.
     private const string TempMailUrl = "https://temp-mail.id";
+    private const string ChangelogUrl = "https://github.com/jonlepage/LS-OCRLAYOUT/blob/main/CHANGELOG.md";
 
     private readonly App _app = (App)System.Windows.Application.Current;
     private readonly ListCollectionView _view;
@@ -72,8 +73,14 @@ public partial class PromptWindow : Window
         // Before _view: Option_Changed ignores these, as it does everything
         // raised during construction.
         TemporaryChatOption.IsChecked = _app.ChatTemporary;
-        AutoSendOption.IsChecked = _app.ChatAutoSend;
+        AutoSendTextOption.IsChecked = _app.ChatAutoSendText;
+        AutoSendImageOption.IsChecked = _app.ChatAutoSendImage;
+        ClipboardImageOption.IsChecked = _app.ClipboardImageFirst;
         AutoUpdateOption.IsChecked = _app.CheckUpdatesAutomatically;
+
+        // Read before the list is filled: filling it selects the first prompt,
+        // and every selection is remembered as the last one.
+        var lastPromptId = _app.LastPromptId;
 
         // A view of our own: the filter must not leak into the app-wide collection.
         _view = new ListCollectionView(_app.Prompts) { Filter = Matches };
@@ -88,14 +95,16 @@ public partial class PromptWindow : Window
         _saveSelectionSoon.Tick += (_, _) => { _saveSelectionSoon.Stop(); _app.SaveSettings(); };
         SourceInitialized += (_, _) => ConfigureNativeWindow();
         Loc.Changed += OnLanguageChanged;
+        Theme.Changed += OnThemeChanged;
         _app.UpdateChanged += RefreshUpdateRow;
 
         RestoreLayout();
         BuildSwatches();
         BuildLanguageRows();
+        BuildThemeRows();
         AttachCapture.IsChecked = _app.PromptAttachScreenshot;
 
-        Select(_app.Prompts.FirstOrDefault(p => p.Id == _app.LastPromptId) ?? _app.Prompts.FirstOrDefault());
+        Select(_app.Prompts.FirstOrDefault(p => p.Id == lastPromptId) ?? _app.Prompts.FirstOrDefault());
         RefreshListState();
         UpdateEditorState();
         RefreshUpdateRow();
@@ -113,7 +122,14 @@ public partial class PromptWindow : Window
             BodyBox.Text = text;
         SearchBox.Text = "";
 
+        // An image put in the clipboard was put there to be sent: attached.
+        // After one, a screenshot goes back to the user's own choice.
+        if (capture.FromClipboard)
+            AttachCapture.IsChecked = true;
+        else if (_capture is { FromClipboard: true })
+            AttachCapture.IsChecked = _app.PromptAttachScreenshot;
         _capture = capture;
+        AttachCapture.SetResourceReference(ContentProperty, capture.FromClipboard ? "pb.capture.clipboard" : "pb.capture");
         CapturePanel.Visibility = Visibility.Visible;
         CaptureThumb.Background = null;
         CaptureThumb.ToolTip = null;
@@ -141,6 +157,8 @@ public partial class PromptWindow : Window
     // back as it was left — same prompt, same text, same screenshot.
     internal void Present()
     {
+        // One window at a time: this one or ChatGPT's.
+        _app.HideChat();
         if (!IsVisible)
         {
             CenterOnCursorScreen();
@@ -372,23 +390,26 @@ public partial class PromptWindow : Window
             {
                 Style = (Style)FindResource("SwatchButton"),
                 Tag = hex,
-                Background = hex.Length == 0
-                    ? (Brush)FindResource("TextPrimary")
-                    : new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)),
             };
-            if (hex.Length == 0) swatch.SetResourceReference(ToolTipProperty, "pb.color.default");
+            if (hex.Length == 0)
+            {
+                swatch.SetResourceReference(BackgroundProperty, "TextPrimary");
+                swatch.SetResourceReference(ToolTipProperty, "pb.color.default");
+            }
+            else swatch.Background = Theme.TitleBrush(hex);
             swatch.Click += Swatch_Click;
             _swatches.Add(swatch);
             TitlePalette.Children.Add(swatch);
         }
     }
 
-    // The current color is ringed in white.
+    // The current color is ringed in the text color.
     private void RefreshSwatches()
     {
         var current = Selected?.TitleColor ?? "";
+        var ring = Theme.Brush("TextPrimary");
         foreach (var swatch in _swatches)
-            swatch.BorderBrush = (string)swatch.Tag == current ? System.Windows.Media.Brushes.White : System.Windows.Media.Brushes.Transparent;
+            swatch.BorderBrush = (string)swatch.Tag == current ? ring : System.Windows.Media.Brushes.Transparent;
     }
 
     private void Swatch_Click(object sender, RoutedEventArgs e)
@@ -444,12 +465,17 @@ public partial class PromptWindow : Window
 
     // ── Settings panel ──
 
-    private void BuildLanguageRows() =>
+    // The settings rows show the current choice; their submenus list them all.
+    private void BuildLanguageRows()
+    {
         LanguageRows.ItemsSource = Loc.Languages.Select(l => new LanguageRow(l.Code, l.Label, l.Code == Loc.Current)).ToList();
+        LanguageValue.Text = Loc.Languages.First(l => l.Code == Loc.Current).Name;
+    }
 
     private void OnLanguageChanged()
     {
         BuildLanguageRows();
+        BuildThemeRows();
         foreach (var prompt in _app.Prompts) prompt.RefreshDisplayName();
         RefreshListState();
         UpdateComposerState();
@@ -460,13 +486,47 @@ public partial class PromptWindow : Window
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, FitHint);
     }
 
+    private void BuildThemeRows()
+    {
+        ThemeRows.ItemsSource = Theme.Names.Select(n => new LanguageRow(n, Loc.T("theme." + n), n == Theme.Current)).ToList();
+        ThemeValue.Text = Loc.T("theme." + Theme.Current);
+    }
+
+    // Brushes set from code, which no DynamicResource follows: the palette
+    // (deeper shades on the light theme), its ring, and the titles.
+    private void OnThemeChanged()
+    {
+        BuildThemeRows();
+        foreach (var swatch in _swatches)
+            if ((string)swatch.Tag is { Length: > 0 } hex) swatch.Background = Theme.TitleBrush(hex);
+        RefreshSwatches();
+        foreach (var prompt in _app.Prompts) prompt.RefreshTitleColor();
+    }
+
+    // The submenu closes, the settings stay open: the change shows live.
+    private void Theme_Click(object sender, RoutedEventArgs e)
+    {
+        ThemePopup.IsOpen = false;
+        _app.SetTheme((string)((Button)sender).Tag);
+    }
+
+    private void LanguageMenu_Click(object sender, RoutedEventArgs e) => LanguagePopup.IsOpen = true;
+    private void ThemeMenu_Click(object sender, RoutedEventArgs e) => ThemePopup.IsOpen = true;
+
+    // A submenu is a popup of its own: it would outlive the panel.
+    private void SettingsPopup_Closed(object? sender, EventArgs e)
+    {
+        LanguagePopup.IsOpen = false;
+        ThemePopup.IsOpen = false;
+    }
+
     private void SettingsButton_Click(object sender, RoutedEventArgs e) =>
         SettingsPopup.IsOpen = !SettingsPopup.IsOpen;
 
     private void Language_Click(object sender, RoutedEventArgs e)
     {
+        LanguagePopup.IsOpen = false;
         _app.SetLanguage((string)((Button)sender).Tag);
-        SettingsPopup.IsOpen = false;
     }
 
     // In the system browser, like every link leaving the app.
@@ -476,12 +536,20 @@ public partial class PromptWindow : Window
         try { Process.Start(new ProcessStartInfo(TempMailUrl) { UseShellExecute = true }); } catch { }
     }
 
+    private void Changelog_Click(object sender, RoutedEventArgs e)
+    {
+        SettingsPopup.IsOpen = false;
+        try { Process.Start(new ProcessStartInfo(ChangelogUrl) { UseShellExecute = true }); } catch { }
+    }
+
     // The settings checkboxes. Read at use: the next send, the next check.
     private void Option_Changed(object sender, RoutedEventArgs e)
     {
         if (_view is null) return; // during construction
         _app.ChatTemporary = TemporaryChatOption.IsChecked == true;
-        _app.ChatAutoSend = AutoSendOption.IsChecked == true;
+        _app.ChatAutoSendText = AutoSendTextOption.IsChecked == true;
+        _app.ChatAutoSendImage = AutoSendImageOption.IsChecked == true;
+        _app.ClipboardImageFirst = ClipboardImageOption.IsChecked == true;
         _app.CheckUpdatesAutomatically = AutoUpdateOption.IsChecked == true;
         _app.SaveSettings();
     }
@@ -702,7 +770,9 @@ public partial class PromptWindow : Window
         HideUndo();
 
         _app.LastPromptId = Selected?.Id ?? _app.LastPromptId;
-        _app.PromptAttachScreenshot = AttachCapture.IsChecked == true;
+        // Not a clipboard image's forced tick: the choice is the user's.
+        if (_capture is not { FromClipboard: true })
+            _app.PromptAttachScreenshot = AttachCapture.IsChecked == true;
         _app.PromptWindowSize = new Size(Width, Height);
         _app.SavePromptsInBackground();
         _app.SaveSettings();
@@ -770,39 +840,18 @@ public partial class PromptWindow : Window
     private static partial int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
 }
 
-// "#RRGGBB" → brush, for a prompt's title color. "" falls back to the
-// default text color, or to the accent with ConverterParameter=accent (the
-// list's selection bar). Brushes are frozen and cached: the list asks for the
-// same few colors over and over.
+// "#RRGGBB" → brush, for a prompt's title color, as the current theme shows
+// it (Theme caches them). "" falls back to the theme's text color, or to its
+// accent with ConverterParameter=accent (the list's selection bar). A theme
+// change re-runs it through SavedPrompt.RefreshTitleColor.
 public sealed class TitleBrushConverter : IValueConverter
 {
-    private static readonly Dictionary<string, SolidColorBrush> Cache = [];
-    private static readonly SolidColorBrush Text = Frozen(Color.FromRgb(0xE8, 0xE8, 0xE8));
-    private static readonly SolidColorBrush Accent = Frozen(Color.FromRgb(0x60, 0xA5, 0xFA));
-
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        var fallback = parameter as string == "accent" ? Accent : Text;
-        if (value is not string hex || hex.Length == 0) return fallback;
-        if (Cache.TryGetValue(hex, out var brush)) return brush;
-        try
-        {
-            brush = Frozen((Color)ColorConverter.ConvertFromString(hex));
-        }
-        catch (FormatException)
-        {
-            return fallback; // hand-edited prompts.json with a bad color
-        }
-        Cache[hex] = brush;
-        return brush;
+        var fallback = Theme.Brush(parameter as string == "accent" ? "AccentSoft" : "TextPrimary");
+        // A bad color comes from a hand-edited prompts.json.
+        return value is string { Length: > 0 } hex ? Theme.TitleBrush(hex) ?? fallback : fallback;
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => System.Windows.Data.Binding.DoNothing;
-
-    private static SolidColorBrush Frozen(Color color)
-    {
-        var brush = new SolidColorBrush(color);
-        brush.Freeze();
-        return brush;
-    }
 }

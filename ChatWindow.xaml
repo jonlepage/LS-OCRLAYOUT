@@ -6,13 +6,13 @@
         Width="1000" Height="820"
         MinWidth="480" MinHeight="400"
         WindowStartupLocation="CenterScreen"
-        Background="#212121"
+        Background="{DynamicResource ChatPageBg}"
         UseLayoutRounding="True"
         FontFamily="Segoe UI"
         Closing="Window_Closing">
     <Window.Resources>
         <Style x:Key="ToolbarButton" TargetType="Button">
-            <Setter Property="Foreground" Value="#D4D4D4" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondary}" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Padding" Value="12,0" />
             <Setter Property="Cursor" Value="Hand" />
@@ -28,22 +28,22 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#2A2A2A" />
-                    <Setter Property="Foreground" Value="White" />
+                    <Setter Property="Background" Value="{DynamicResource HoverBg}" />
+                    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#333333" />
+                    <Setter Property="Background" Value="{DynamicResource MenuHoverBg}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
 
         <Style TargetType="ToolTip">
-            <Setter Property="Foreground" Value="#E8E8E8" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ToolTip">
-                        <Border Background="#252526" BorderBrush="#3A3A3A" BorderThickness="1" Padding="8,5">
+                        <Border Background="{DynamicResource PopupBg}" BorderBrush="{DynamicResource PopupBorder}" BorderThickness="1" Padding="8,5">
                             <ContentPresenter />
                         </Border>
                     </ControlTemplate>
@@ -60,7 +60,7 @@
         </Grid.RowDefinitions>
 
         <!-- Back to the Prompt Builder, as it was left. -->
-        <Border Background="#181818" BorderBrush="#2B2B2B" BorderThickness="0,0,0,1">
+        <Border Background="{DynamicResource ChromeBg}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1">
             <Button Style="{StaticResource ToolbarButton}"
                     HorizontalAlignment="Left"
                     ToolTip="{DynamicResource chat.back.tip}"
@@ -84,8 +84,8 @@
              a moment after a successful send. -->
         <Border x:Name="StatusBar"
                 Grid.Row="2"
-                Background="#181818"
-                BorderBrush="#2B2B2B"
+                Background="{DynamicResource ChromeBg}"
+                BorderBrush="{DynamicResource Line}"
                 BorderThickness="0,1,0,0"
                 Padding="14,8"
                 Visibility="Collapsed">
@@ -97,7 +97,7 @@
                            Margin="0,0,10,0" />
                 <TextBlock x:Name="StatusText"
                            FontSize="12.5"
-                           Foreground="#D4D4D4"
+                           Foreground="{DynamicResource TextSecondary}"
                            TextWrapping="Wrap"
                            VerticalAlignment="Center" />
             </StackPanel>

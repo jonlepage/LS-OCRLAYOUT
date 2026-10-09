@@ -28,15 +28,39 @@ internal sealed class ScreenCapture
 
     private readonly Task<Bitmap?> _full;
 
-    private ScreenCapture(ScreenInfo screen)
+    private ScreenCapture(Task<Bitmap?> full, bool fromClipboard)
     {
-        _full = Task.Run(() => Attempt(() => MainWindow.CaptureScreen(screen.X, screen.Y, screen.Width, screen.Height)));
-        Previews = _full.ContinueWith(t => t.Result is { } full ? Attempt(() => MakePreviews(full)) : null, TaskScheduler.Default);
-        Png = Previews.ContinueWith(_ => _full.Result is { } full ? Attempt(() => EncodePng(full)) : null, TaskScheduler.Default);
+        _full = full;
+        FromClipboard = fromClipboard;
+        Previews = _full.ContinueWith(t => t.Result is { } image ? Attempt(() => MakePreviews(image)) : null, TaskScheduler.Default);
+        Png = Previews.ContinueWith(_ => _full.Result is { } image ? Attempt(() => EncodePng(image)) : null, TaskScheduler.Default);
     }
 
     // Starts on a worker thread right away, in parallel with the Ctrl+C.
-    internal static ScreenCapture Start() => new(MainWindow.GetCurrentScreenInfo());
+    internal static ScreenCapture Start()
+    {
+        var screen = MainWindow.GetCurrentScreenInfo();
+        return new(Task.Run(() => Attempt(() => MainWindow.CaptureScreen(screen.X, screen.Y, screen.Width, screen.Height))), false);
+    }
+
+    // The image already in the clipboard (Win+Shift+S…) instead of a new
+    // screenshot; null when there is none. Read BEFORE the Ctrl+C, which may
+    // replace it with the selected text. UI thread: the clipboard needs STA.
+    internal static ScreenCapture? FromClipboardImage()
+    {
+        try
+        {
+            if (!Forms.Clipboard.ContainsImage() || Forms.Clipboard.GetImage() is not Bitmap image) return null;
+            return new(Task.FromResult<Bitmap?>(image), true);
+        }
+        catch
+        {
+            return null; // clipboard held by another app: take a screenshot
+        }
+    }
+
+    // Came from the clipboard: it is there already, nothing to copy back.
+    internal bool FromClipboard { get; }
 
     // Completes once the screen is captured: nothing of ours may cover it before.
     internal Task Taken => _full;

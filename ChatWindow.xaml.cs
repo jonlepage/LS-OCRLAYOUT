@@ -56,6 +56,8 @@ public partial class ChatWindow : Window
     private bool _closingForGood;
     // Shown once, off-screen, so the WebView could initialize (see RealizeOffScreen).
     private bool _realized;
+    // The theme script every new document runs (ChatGptPage.ThemeScript).
+    private string? _themeScriptId;
 
     internal ChatWindow(string userDataFolder, Rect? bounds, Action<Rect> saveBounds, Action backToPromptBuilder, Func<bool> temporaryChat)
     {
@@ -65,7 +67,8 @@ public partial class ChatWindow : Window
         _backToPromptBuilder = backToPromptBuilder;
         _temporaryChat = temporaryChat;
 
-        WebView.DefaultBackgroundColor = System.Drawing.Color.FromArgb(0x21, 0x21, 0x21);
+        ApplyThemeToPage();
+        Theme.Changed += OnThemeChanged;
         _statusHide.Tick += (_, _) => { _statusHide.Stop(); StatusBar.Visibility = Visibility.Collapsed; };
         SourceInitialized += (_, _) => ConfigureNativeWindow();
 
@@ -319,6 +322,10 @@ public partial class ChatWindow : Window
         await WebView.EnsureCoreWebView2Async(environment);
 
         var core = WebView.CoreWebView2;
+        // ChatGPT follows prefers-color-scheme: the page wears the app's theme.
+        core.Profile.PreferredColorScheme = PageColorScheme;
+        // ...and its colors, in every document from the first one on.
+        _themeScriptId = await core.AddScriptToExecuteOnDocumentCreatedAsync(ChatGptPage.ThemeScript(PageCss()));
         core.Settings.AreHostObjectsAllowed = false;
         core.Settings.IsStatusBarEnabled = false;
         // The login survives restarts (its cookie is in the profile). Should
@@ -427,14 +434,14 @@ public partial class ChatWindow : Window
         _statusHide.Stop();
         var (glyph, color) = kind switch
         {
-            StatusKind.Working => ("", Color.FromRgb(0x93, 0xC5, 0xFD)),
-            StatusKind.Ready => ("", Color.FromRgb(0x93, 0xC5, 0xFD)),
-            StatusKind.Success => ("", Color.FromRgb(0x4A, 0xDE, 0x80)),
-            StatusKind.Warning => ("", Color.FromRgb(0xFA, 0xCC, 0x15)),
-            _ => ("", Color.FromRgb(0xF4, 0x71, 0x74)),
+            StatusKind.Working => ("", "StatusInfo"),
+            StatusKind.Ready => ("", "StatusInfo"),
+            StatusKind.Success => ("", "StatusSuccess"),
+            StatusKind.Warning => ("", "StatusWarning"),
+            _ => ("", "StatusError"),
         };
         StatusGlyph.Text = glyph;
-        StatusGlyph.Foreground = new SolidColorBrush(color);
+        StatusGlyph.SetResourceReference(System.Windows.Controls.TextBlock.ForegroundProperty, color);
         StatusText.Text = text;
         StatusBar.Visibility = Visibility.Visible;
         if (kind == StatusKind.Success) _statusHide.Start();
@@ -442,9 +449,19 @@ public partial class ChatWindow : Window
 
     // ── Window lifetime ──
 
-    // The answer stays here; the Prompt Builder comes back in front, as it
-    // was left, to adjust the prompt or the text and send again.
+    // The Prompt Builder comes back as it was left, to adjust the prompt or
+    // the text and send again; this window steps aside (see StepAside).
     private void Back_Click(object sender, RoutedEventArgs e) => _backToPromptBuilder();
+
+    // One window at a time: when the Prompt Builder shows, this one hides.
+    // Hidden, not closed: the page stays as it is — the Prompt Builder's
+    // ChatGPT button shows the answer again.
+    internal void StepAside()
+    {
+        if (!IsVisible) return;
+        _saveBounds(WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds);
+        Hide();
+    }
 
     // Closing only hides — and prepares the next conversation right away,
     // while nobody is looking.
@@ -479,15 +496,73 @@ public partial class ChatWindow : Window
         return bounds.Width > 0 && bounds.Height > 0 && desktop.IntersectsWith(bounds);
     }
 
-    // Dark caption to match the page (Windows 10 2004+ / 11), square corners
-    // on Windows 11 like everything else in the app.
+    // Caption in the theme's mode (Windows 10 2004+ / 11), square corners on
+    // Windows 11 like everything else in the app.
     private void ConfigureNativeWindow()
     {
         var hwnd = new WindowInteropHelper(this).Handle;
-        int enabled = 1;
-        DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref enabled, sizeof(int));
+        ApplyThemeToCaption(hwnd);
         int square = DWMWCP_DONOTROUND;
         DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref square, sizeof(int));
+    }
+
+    private static void ApplyThemeToCaption(IntPtr hwnd)
+    {
+        int dark = Theme.IsLight ? 0 : 1;
+        DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref dark, sizeof(int));
+    }
+
+    private static CoreWebView2PreferredColorScheme PageColorScheme =>
+        Theme.IsLight ? CoreWebView2PreferredColorScheme.Light : CoreWebView2PreferredColorScheme.Dark;
+
+    // Shown before the page paints, and behind it while it loads.
+    private void ApplyThemeToPage()
+    {
+        var c = Theme.ColorOf("ChatPageBg");
+        WebView.DefaultBackgroundColor = System.Drawing.Color.FromArgb(c.R, c.G, c.B);
+    }
+
+    // The XAML follows by itself (DynamicResource); the caption, the page's
+    // color scheme and its background are set here.
+    private void OnThemeChanged()
+    {
+        ApplyThemeToPage();
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd != IntPtr.Zero) ApplyThemeToCaption(hwnd);
+        if (WebView.CoreWebView2 is { } core)
+        {
+            core.Profile.PreferredColorScheme = PageColorScheme;
+            _ = RecolorPageAsync(core);
+        }
+    }
+
+    // Always the compact look. Dark keeps ChatGPT's own colors; the other
+    // themes paint the page in theirs (Light included: softer than its white).
+    private static string PageCss() => ChatGptPage.CompactCss + (Theme.Current == Theme.Dark ? "" : ChatGptPage.ThemeCss(new PageColors(
+        Page: Theme.Hex("WindowBg"),
+        Raised: Theme.Hex("InputBg"),
+        Hover: Theme.Hex("HoverBg"),
+        Selected: Theme.Hex("SelectedBg"),
+        Sidebar: Theme.Hex("SidebarBg"),
+        Text: Theme.Hex("TextPrimary"),
+        TextSecondary: Theme.Hex("TextSecondary"),
+        TextMuted: Theme.Hex("TextMuted"),
+        Line: Theme.Hex("Line"),
+        Border: Theme.Hex("InputBorder"),
+        Accent: Theme.Hex("Accent"))));
+
+    // The registered script is swapped for the next documents, and run in
+    // the current one so the change shows right away.
+    private async Task RecolorPageAsync(CoreWebView2 core)
+    {
+        try
+        {
+            var script = ChatGptPage.ThemeScript(PageCss());
+            if (_themeScriptId is not null) core.RemoveScriptToExecuteOnDocumentCreated(_themeScriptId);
+            _themeScriptId = await core.AddScriptToExecuteOnDocumentCreatedAsync(script);
+            await core.ExecuteScriptAsync(script);
+        }
+        catch { /* page mid-navigation: the new document runs the registered script */ }
     }
 
     private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;

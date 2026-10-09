@@ -6,7 +6,7 @@
         Width="940" Height="620"
         MinWidth="720" MinHeight="470"
         WindowStyle="None"
-        Background="#1E1E1E"
+        Background="{DynamicResource WindowBg}"
         ResizeMode="CanResize"
         WindowStartupLocation="Manual"
         ShowInTaskbar="True"
@@ -32,28 +32,8 @@
     <!-- Every visible string is a {DynamicResource key} published by Loc:
          a language change applies live. -->
     <Window.Resources>
-        <!-- ── Palette: the overlay's #1E1E1E surfaces, the translate
-             toggle's blue as accent ── -->
-        <SolidColorBrush x:Key="WindowBg" Color="#1E1E1E" />
-        <SolidColorBrush x:Key="ChromeBg" Color="#181818" />
-        <SolidColorBrush x:Key="SidebarBg" Color="#191919" />
-        <SolidColorBrush x:Key="Line" Color="#2C2C2C" />
-        <SolidColorBrush x:Key="InputBg" Color="#232324" />
-        <SolidColorBrush x:Key="InputBorder" Color="#363636" />
-        <SolidColorBrush x:Key="InputBorderHover" Color="#4A4A4A" />
-        <SolidColorBrush x:Key="PopupBg" Color="#252526" />
-        <SolidColorBrush x:Key="PopupBorder" Color="#3A3A3A" />
-        <SolidColorBrush x:Key="Accent" Color="#2563EB" />
-        <SolidColorBrush x:Key="AccentHover" Color="#3B82F6" />
-        <SolidColorBrush x:Key="AccentPressed" Color="#1D4ED8" />
-        <SolidColorBrush x:Key="AccentSoft" Color="#60A5FA" />
-        <SolidColorBrush x:Key="TextPrimary" Color="#E8E8E8" />
-        <SolidColorBrush x:Key="TextSecondary" Color="#B4B4B4" />
-        <SolidColorBrush x:Key="TextMuted" Color="#8A8A8A" />
-        <SolidColorBrush x:Key="Placeholder" Color="#6F6F6F" />
-        <SolidColorBrush x:Key="HoverBg" Color="#262626" />
-        <SolidColorBrush x:Key="SelectedBg" Color="#2A2F38" />
-        <SolidColorBrush x:Key="Danger" Color="#F47174" />
+        <!-- Colors come from Theme (application resources, dark or light):
+             every brush is a DynamicResource, so a theme change applies live. -->
         <FontFamily x:Key="IconFont">Segoe MDL2 Assets</FontFamily>
 
         <local:TitleBrushConverter x:Key="TitleBrush" />
@@ -76,7 +56,7 @@
         <Style x:Key="ScrollThumb" TargetType="Thumb">
             <Setter Property="Focusable" Value="False" />
             <Setter Property="IsTabStop" Value="False" />
-            <Setter Property="Background" Value="#5A5A5A" />
+            <Setter Property="Background" Value="{DynamicResource ScrollThumb}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Thumb">
@@ -86,10 +66,10 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#787878" />
+                    <Setter Property="Background" Value="{DynamicResource ScrollThumbHover}" />
                 </Trigger>
                 <Trigger Property="IsDragging" Value="True">
-                    <Setter Property="Background" Value="#9A9A9A" />
+                    <Setter Property="Background" Value="{DynamicResource ScrollThumbDrag}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -148,14 +128,14 @@
 
         <!-- ── Text inputs. The placeholder is the Tag. ── -->
         <Style x:Key="InputBox" TargetType="TextBox">
-            <Setter Property="Background" Value="{StaticResource InputBg}" />
-            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
-            <Setter Property="BorderBrush" Value="{StaticResource InputBorder}" />
+            <Setter Property="Background" Value="{DynamicResource InputBg}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorder}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="10,8" />
             <Setter Property="FontSize" Value="13.5" />
-            <Setter Property="CaretBrush" Value="{StaticResource TextPrimary}" />
-            <Setter Property="SelectionBrush" Value="{StaticResource AccentSoft}" />
+            <Setter Property="CaretBrush" Value="{DynamicResource TextPrimary}" />
+            <Setter Property="SelectionBrush" Value="{DynamicResource AccentSoft}" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -168,7 +148,7 @@
                             <Grid>
                                 <TextBlock x:Name="Placeholder"
                                            Text="{TemplateBinding Tag}"
-                                           Foreground="{StaticResource Placeholder}"
+                                           Foreground="{DynamicResource Placeholder}"
                                            Margin="{TemplateBinding Padding}"
                                            Padding="2,0,0,0"
                                            TextWrapping="Wrap"
@@ -182,10 +162,10 @@
                                 <Setter TargetName="Placeholder" Property="Visibility" Value="Visible" />
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource InputBorderHover}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource InputBorderHover}" />
                             </Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentSoft}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentSoft}" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.45" />
@@ -214,22 +194,22 @@
         </Style>
 
         <Style x:Key="SearchField" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource InputBg}" />
-            <Setter Property="BorderBrush" Value="{StaticResource InputBorder}" />
+            <Setter Property="Background" Value="{DynamicResource InputBg}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorder}" />
             <Setter Property="BorderThickness" Value="1" />
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="BorderBrush" Value="{StaticResource InputBorderHover}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource InputBorderHover}" />
                 </Trigger>
                 <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                    <Setter Property="BorderBrush" Value="{StaticResource AccentSoft}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentSoft}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
 
         <!-- ── Buttons ── -->
         <Style x:Key="ButtonBase" TargetType="Button">
-            <Setter Property="Foreground" Value="{StaticResource TextSecondary}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondary}" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="Transparent" />
             <Setter Property="BorderThickness" Value="1" />
@@ -260,11 +240,11 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="{StaticResource HoverBg}" />
-                    <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+                    <Setter Property="Background" Value="{DynamicResource HoverBg}" />
+                    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
                 </Trigger>
                 <Trigger Property="IsKeyboardFocused" Value="True">
-                    <Setter Property="BorderBrush" Value="{StaticResource AccentSoft}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentSoft}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -280,7 +260,7 @@
         <Style x:Key="DangerIconButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Foreground" Value="{StaticResource Danger}" />
+                    <Setter Property="Foreground" Value="{DynamicResource Danger}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -301,17 +281,17 @@
         </Style>
 
         <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
-            <Setter Property="Background" Value="{StaticResource Accent}" />
+            <Setter Property="Background" Value="{DynamicResource Accent}" />
             <Setter Property="Foreground" Value="White" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Padding" Value="16,8" />
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="{StaticResource AccentHover}" />
+                    <Setter Property="Background" Value="{DynamicResource AccentHover}" />
                     <Setter Property="Foreground" Value="White" />
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="{StaticResource AccentPressed}" />
+                    <Setter Property="Background" Value="{DynamicResource AccentPressed}" />
                 </Trigger>
                 <Trigger Property="IsKeyboardFocused" Value="True">
                     <Setter Property="BorderBrush" Value="#BFDBFE" />
@@ -320,50 +300,50 @@
         </Style>
 
         <Style x:Key="OutlineButton" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
-            <Setter Property="BorderBrush" Value="{StaticResource InputBorder}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorder}" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Padding" Value="11,8" />
         </Style>
 
         <Style x:Key="LinkButton" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
-            <Setter Property="Foreground" Value="{StaticResource AccentSoft}" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentSoft}" />
             <Setter Property="Padding" Value="6,2" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Foreground" Value="#93C5FD" />
+                    <Setter Property="Foreground" Value="{DynamicResource LinkHover}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
 
         <!-- The title bar's "new version" pill. -->
         <Style x:Key="UpdatePill" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
-            <Setter Property="Background" Value="#1A2B45" />
-            <Setter Property="BorderBrush" Value="#2F4E7E" />
-            <Setter Property="Foreground" Value="#BFDBFE" />
+            <Setter Property="Background" Value="{DynamicResource PillBg}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PillBorder}" />
+            <Setter Property="Foreground" Value="{DynamicResource PillText}" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Padding" Value="12,4" />
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="{StaticResource Accent}" />
-                    <Setter Property="BorderBrush" Value="{StaticResource AccentHover}" />
+                    <Setter Property="Background" Value="{DynamicResource Accent}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentHover}" />
                     <Setter Property="Foreground" Value="White" />
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="{StaticResource AccentPressed}" />
+                    <Setter Property="Background" Value="{DynamicResource AccentPressed}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
 
         <!-- A row of the settings panel. -->
         <Style x:Key="MenuRowButton" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
-            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Padding" Value="8,7" />
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#30343B" />
+                    <Setter Property="Background" Value="{DynamicResource MenuHoverBg}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -385,7 +365,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Ring" Property="BorderBrush" Value="#8A8A8A" />
+                                <Setter TargetName="Ring" Property="BorderBrush" Value="{DynamicResource StrongBorder}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -404,15 +384,15 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="GridSplitter">
                         <Grid Background="Transparent">
-                            <Rectangle x:Name="Line" Width="1" Fill="{StaticResource Line}" HorizontalAlignment="Center" />
+                            <Rectangle x:Name="Line" Width="1" Fill="{DynamicResource Line}" HorizontalAlignment="Center" />
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Line" Property="Fill" Value="{StaticResource AccentSoft}" />
+                                <Setter TargetName="Line" Property="Fill" Value="{DynamicResource AccentSoft}" />
                                 <Setter TargetName="Line" Property="Width" Value="2" />
                             </Trigger>
                             <Trigger Property="IsDragging" Value="True">
-                                <Setter TargetName="Line" Property="Fill" Value="{StaticResource AccentSoft}" />
+                                <Setter TargetName="Line" Property="Fill" Value="{DynamicResource AccentSoft}" />
                                 <Setter TargetName="Line" Property="Width" Value="2" />
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -431,14 +411,14 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="GridSplitter">
                         <Grid Background="Transparent">
-                            <Rectangle x:Name="Grip" Width="40" Height="3" Fill="#3A3A3A" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <Rectangle x:Name="Grip" Width="40" Height="3" Fill="{DynamicResource OuterBorder}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Grip" Property="Fill" Value="{StaticResource AccentSoft}" />
+                                <Setter TargetName="Grip" Property="Fill" Value="{DynamicResource AccentSoft}" />
                             </Trigger>
                             <Trigger Property="IsDragging" Value="True">
-                                <Setter TargetName="Grip" Property="Fill" Value="{StaticResource AccentSoft}" />
+                                <Setter TargetName="Grip" Property="Fill" Value="{DynamicResource AccentSoft}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -448,7 +428,7 @@
 
         <!-- ── Checkbox ── -->
         <Style TargetType="CheckBox">
-            <Setter Property="Foreground" Value="{StaticResource TextSecondary}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondary}" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Template">
@@ -458,7 +438,7 @@
                             <Border x:Name="Box"
                                     Width="16" Height="16"
                                     BorderThickness="1.5"
-                                    BorderBrush="#5C5C5C"
+                                    BorderBrush="{DynamicResource CheckBorder}"
                                     Background="Transparent"
                                     VerticalAlignment="Center">
                                 <Path x:Name="Mark"
@@ -476,17 +456,17 @@
                         </StackPanel>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Box" Property="BorderBrush" Value="#8A8A8A" />
-                                <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource StrongBorder}" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Box" Property="Background" Value="{StaticResource Accent}" />
-                                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Accent}" />
+                                <Setter TargetName="Box" Property="Background" Value="{DynamicResource Accent}" />
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Accent}" />
                                 <Setter TargetName="Mark" Property="Visibility" Value="Visible" />
-                                <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
                             </Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource AccentSoft}" />
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentSoft}" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.4" />
@@ -499,13 +479,13 @@
 
         <!-- ── Tooltips and context menu ── -->
         <Style TargetType="ToolTip">
-            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ToolTip">
-                        <Border Background="{StaticResource PopupBg}"
-                                BorderBrush="{StaticResource PopupBorder}"
+                        <Border Background="{DynamicResource PopupBg}"
+                                BorderBrush="{DynamicResource PopupBorder}"
                                 BorderThickness="1"
                                 Padding="8,5">
                             <ContentPresenter />
@@ -516,13 +496,13 @@
         </Style>
 
         <Style x:Key="DarkMenu" TargetType="ContextMenu">
-            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
             <Setter Property="FontFamily" Value="Segoe UI" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ContextMenu">
-                        <Border Background="{StaticResource PopupBg}"
-                                BorderBrush="{StaticResource PopupBorder}"
+                        <Border Background="{DynamicResource PopupBg}"
+                                BorderBrush="{DynamicResource PopupBorder}"
                                 BorderThickness="1"
                                 Padding="4">
                             <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
@@ -534,7 +514,7 @@
 
         <!-- Tag carries the icon glyph. -->
         <Style x:Key="DarkMenuItem" TargetType="MenuItem">
-            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
             <Setter Property="FontSize" Value="12.5" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
@@ -550,7 +530,7 @@
                                 <TextBlock Text="{TemplateBinding Tag}"
                                            FontFamily="{StaticResource IconFont}"
                                            FontSize="12"
-                                           Foreground="{StaticResource TextSecondary}"
+                                           Foreground="{DynamicResource TextSecondary}"
                                            VerticalAlignment="Center" />
                                 <ContentPresenter Grid.Column="1"
                                                   ContentSource="Header"
@@ -558,14 +538,14 @@
                                                   RecognizesAccessKey="False" />
                                 <TextBlock Grid.Column="2"
                                            Text="{TemplateBinding InputGestureText}"
-                                           Foreground="{StaticResource TextMuted}"
+                                           Foreground="{DynamicResource TextMuted}"
                                            Margin="24,0,0,0"
                                            VerticalAlignment="Center" />
                             </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsHighlighted" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#30343B" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource MenuHoverBg}" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.4" />
@@ -580,7 +560,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Separator">
-                        <Border Height="1" Background="{StaticResource PopupBorder}" Margin="6,4" />
+                        <Border Height="1" Background="{DynamicResource PopupBorder}" Margin="6,4" />
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
@@ -614,7 +594,7 @@
         <!-- The selection bar wears the prompt's title color. -->
         <Style x:Key="PromptItemStyle" TargetType="ListBoxItem">
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -631,10 +611,10 @@
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBg}" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBg}" />
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SelectedBg}" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SelectedBg}" />
                                 <Setter TargetName="Bar" Property="Visibility" Value="Visible" />
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -652,14 +632,14 @@
                 <!-- Ctrl+1…9 keycap -->
                 <Border x:Name="KeyCap"
                         Width="18" Height="18"
-                        Background="#242424"
-                        BorderBrush="#383838"
+                        Background="{DynamicResource KeyCapBg}"
+                        BorderBrush="{DynamicResource KeyCapBorder}"
                         BorderThickness="1"
                         Margin="0,1,10,0"
                         VerticalAlignment="Top">
                     <TextBlock Text="{Binding Shortcut}"
                                FontSize="10.5"
-                               Foreground="{StaticResource TextMuted}"
+                               Foreground="{DynamicResource TextMuted}"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center" />
                 </Border>
@@ -671,7 +651,7 @@
                     <TextBlock x:Name="PreviewText"
                                Text="{Binding Preview}"
                                FontSize="11.5"
-                               Foreground="{StaticResource TextMuted}"
+                               Foreground="{DynamicResource TextMuted}"
                                TextTrimming="CharacterEllipsis"
                                Margin="0,2,0,0" />
                 </StackPanel>
@@ -689,21 +669,21 @@
         <Style x:Key="SectionLabel" TargetType="TextBlock">
             <Setter Property="FontSize" Value="11" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
         <Style x:Key="Hint" TargetType="TextBlock">
             <Setter Property="FontSize" Value="11.5" />
-            <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
     </Window.Resources>
 
-    <Border Background="{StaticResource WindowBg}"
-            BorderBrush="#3A3A3A"
+    <Border Background="{DynamicResource WindowBg}"
+            BorderBrush="{DynamicResource OuterBorder}"
             BorderThickness="1"
-            TextElement.Foreground="{StaticResource TextPrimary}">
+            TextElement.Foreground="{DynamicResource TextPrimary}">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="48" />
@@ -713,8 +693,8 @@
 
             <!-- ── Title bar (drag to move) ── -->
             <Border Grid.Row="0"
-                    Background="{StaticResource ChromeBg}"
-                    BorderBrush="{StaticResource Line}"
+                    Background="{DynamicResource ChromeBg}"
+                    BorderBrush="{DynamicResource Line}"
                     BorderThickness="0,0,0,1"
                     MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
                 <Grid Margin="14,0,8,0">
@@ -726,7 +706,7 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <Border Width="26" Height="26" Background="{StaticResource Accent}" VerticalAlignment="Center">
+                    <Border Width="26" Height="26" Background="{DynamicResource Accent}" VerticalAlignment="Center">
                         <TextBlock Text="&#xE8BD;"
                                    FontFamily="{StaticResource IconFont}"
                                    FontSize="13"
@@ -787,43 +767,148 @@
                    Grid.Row="0"
                    PlacementTarget="{Binding ElementName=SettingsButton}"
                    Placement="Bottom"
-                   HorizontalOffset="-220"
+                   HorizontalOffset="-250"
                    VerticalOffset="2"
                    StaysOpen="False"
-                   PopupAnimation="None">
-                <Border Width="260"
-                        Background="{StaticResource PopupBg}"
-                        BorderBrush="{StaticResource PopupBorder}"
+                   PopupAnimation="None"
+                   Closed="SettingsPopup_Closed">
+                <Border Width="290"
+                        Background="{DynamicResource PopupBg}"
+                        BorderBrush="{DynamicResource PopupBorder}"
                         BorderThickness="1"
                         Padding="6,10"
-                        TextElement.Foreground="{StaticResource TextPrimary}"
+                        TextElement.Foreground="{DynamicResource TextPrimary}"
                         TextElement.FontFamily="Segoe UI"
                         TextElement.FontSize="13">
                     <StackPanel>
-                        <TextBlock Text="{DynamicResource pb.settings.language}" Style="{StaticResource SectionLabel}" Margin="8,0,8,6" />
-                        <ItemsControl x:Name="LanguageRows">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate DataType="{x:Type local:LanguageRow}">
-                                    <Button Style="{StaticResource MenuRowButton}" Tag="{Binding Code}" Click="Language_Click">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="22" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Text="&#xE73E;"
-                                                       FontFamily="{StaticResource IconFont}"
-                                                       FontSize="12"
-                                                       Foreground="{StaticResource AccentSoft}"
-                                                       VerticalAlignment="Center"
-                                                       Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVisibility}}" />
-                                            <TextBlock Grid.Column="1" Text="{Binding Label}" VerticalAlignment="Center" />
-                                        </Grid>
-                                    </Button>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        <Button x:Name="LanguageMenu" Style="{StaticResource MenuRowButton}" Click="LanguageMenu_Click">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="22" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="&#xE774;"
+                                           FontFamily="{StaticResource IconFont}"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource AccentSoft}"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="{DynamicResource pb.settings.languageRow}" VerticalAlignment="Center" />
+                                <TextBlock x:Name="LanguageValue" Grid.Column="2" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="12,0,8,0" />
+                                <TextBlock Grid.Column="3"
+                                           Text="&#xE76C;"
+                                           FontFamily="{StaticResource IconFont}"
+                                           FontSize="10"
+                                           Foreground="{DynamicResource TextMuted}"
+                                           VerticalAlignment="Center" />
+                            </Grid>
+                        </Button>
+                        <!-- Inside the settings panel, so a click in it doesn't
+                             count as a click outside the panel. -->
+                        <Popup x:Name="LanguagePopup"
+                               PlacementTarget="{Binding ElementName=LanguageMenu}"
+                               Placement="Left"
+                               HorizontalOffset="-4"
+                               VerticalOffset="-7"
+                               StaysOpen="False"
+                               PopupAnimation="None">
+                            <Border MinWidth="190"
+                                    Background="{DynamicResource PopupBg}"
+                                    BorderBrush="{DynamicResource PopupBorder}"
+                                    BorderThickness="1"
+                                    Padding="6"
+                                    TextElement.Foreground="{DynamicResource TextPrimary}"
+                                    TextElement.FontFamily="Segoe UI"
+                                    TextElement.FontSize="13">
+                                <ItemsControl x:Name="LanguageRows">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type local:LanguageRow}">
+                                                <Button Style="{StaticResource MenuRowButton}" Tag="{Binding Code}" Click="Language_Click">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="22" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="&#xE73E;"
+                                                                   FontFamily="{StaticResource IconFont}"
+                                                                   FontSize="12"
+                                                                   Foreground="{DynamicResource AccentSoft}"
+                                                                   VerticalAlignment="Center"
+                                                                   Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVisibility}}" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding Label}" VerticalAlignment="Center" />
+                                                    </Grid>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                            </Border>
+                        </Popup>
+                        <Button x:Name="ThemeMenu" Style="{StaticResource MenuRowButton}" Click="ThemeMenu_Click">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="22" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="&#xE790;"
+                                           FontFamily="{StaticResource IconFont}"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource AccentSoft}"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="{DynamicResource pb.settings.themeRow}" VerticalAlignment="Center" />
+                                <TextBlock x:Name="ThemeValue" Grid.Column="2" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="12,0,8,0" />
+                                <TextBlock Grid.Column="3"
+                                           Text="&#xE76C;"
+                                           FontFamily="{StaticResource IconFont}"
+                                           FontSize="10"
+                                           Foreground="{DynamicResource TextMuted}"
+                                           VerticalAlignment="Center" />
+                            </Grid>
+                        </Button>
+                        <!-- Inside the settings panel, so a click in it doesn't
+                             count as a click outside the panel. -->
+                        <Popup x:Name="ThemePopup"
+                               PlacementTarget="{Binding ElementName=ThemeMenu}"
+                               Placement="Left"
+                               HorizontalOffset="-4"
+                               VerticalOffset="-7"
+                               StaysOpen="False"
+                               PopupAnimation="None">
+                            <Border MinWidth="190"
+                                    Background="{DynamicResource PopupBg}"
+                                    BorderBrush="{DynamicResource PopupBorder}"
+                                    BorderThickness="1"
+                                    Padding="6"
+                                    TextElement.Foreground="{DynamicResource TextPrimary}"
+                                    TextElement.FontFamily="Segoe UI"
+                                    TextElement.FontSize="13">
+                                <ItemsControl x:Name="ThemeRows">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type local:LanguageRow}">
+                                                <Button Style="{StaticResource MenuRowButton}" Tag="{Binding Code}" Click="Theme_Click">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="22" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="&#xE73E;"
+                                                                   FontFamily="{StaticResource IconFont}"
+                                                                   FontSize="12"
+                                                                   Foreground="{DynamicResource AccentSoft}"
+                                                                   VerticalAlignment="Center"
+                                                                   Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVisibility}}" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding Label}" VerticalAlignment="Center" />
+                                                    </Grid>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                            </Border>
+                        </Popup>
 
-                        <Border Height="1" Background="{StaticResource PopupBorder}" Margin="2,10" />
+                        <Border Height="1" Background="{DynamicResource PopupBorder}" Margin="2,10" />
 
                         <TextBlock Text="{DynamicResource pb.settings.chatgpt}" Style="{StaticResource SectionLabel}" Margin="8,0,8,8" />
                         <CheckBox x:Name="TemporaryChatOption"
@@ -832,19 +917,31 @@
                                   ToolTip="{DynamicResource pb.settings.temporary.tip}"
                                   Checked="Option_Changed"
                                   Unchecked="Option_Changed" />
-                        <CheckBox x:Name="AutoSendOption"
+                        <CheckBox x:Name="AutoSendTextOption"
                                   Margin="8,10,8,0"
-                                  Content="{DynamicResource pb.settings.autoSend}"
-                                  ToolTip="{DynamicResource pb.settings.autoSend.tip}"
+                                  Content="{DynamicResource pb.settings.autoSendText}"
+                                  ToolTip="{DynamicResource pb.settings.autoSendText.tip}"
+                                  Checked="Option_Changed"
+                                  Unchecked="Option_Changed" />
+                        <CheckBox x:Name="AutoSendImageOption"
+                                  Margin="8,10,8,0"
+                                  Content="{DynamicResource pb.settings.autoSendImage}"
+                                  ToolTip="{DynamicResource pb.settings.autoSendImage.tip}"
+                                  Checked="Option_Changed"
+                                  Unchecked="Option_Changed" />
+                        <CheckBox x:Name="ClipboardImageOption"
+                                  Margin="8,10,8,0"
+                                  Content="{DynamicResource pb.settings.clipboardImage}"
+                                  ToolTip="{DynamicResource pb.settings.clipboardImage.tip}"
                                   Checked="Option_Changed"
                                   Unchecked="Option_Changed" />
 
-                        <Border Height="1" Background="{StaticResource PopupBorder}" Margin="2,10" />
+                        <Border Height="1" Background="{DynamicResource PopupBorder}" Margin="2,10" />
 
                         <TextBlock Text="{DynamicResource pb.settings.textSize}" Style="{StaticResource SectionLabel}" Margin="8,0,8,6" />
                         <StackPanel Orientation="Horizontal" Margin="8,0">
                             <Button Style="{StaticResource IconButton}"
-                                    BorderBrush="{StaticResource InputBorder}"
+                                    BorderBrush="{DynamicResource InputBorder}"
                                     Content="&#xE738;"
                                     Click="TextSmaller_Click" />
                             <TextBlock x:Name="TextSizeValue"
@@ -852,13 +949,13 @@
                                        TextAlignment="Center"
                                        VerticalAlignment="Center" />
                             <Button Style="{StaticResource IconButton}"
-                                    BorderBrush="{StaticResource InputBorder}"
+                                    BorderBrush="{DynamicResource InputBorder}"
                                     Content="&#xE710;"
                                     Click="TextLarger_Click" />
                         </StackPanel>
                         <TextBlock Text="{DynamicResource pb.settings.textSizeHint}" Style="{StaticResource Hint}" Margin="8,8,8,0" />
 
-                        <Border Height="1" Background="{StaticResource PopupBorder}" Margin="2,10" />
+                        <Border Height="1" Background="{DynamicResource PopupBorder}" Margin="2,10" />
 
                         <TextBlock Text="{DynamicResource pb.settings.account}" Style="{StaticResource SectionLabel}" Margin="8,0,8,6" />
                         <Button Style="{StaticResource MenuRowButton}"
@@ -873,25 +970,25 @@
                                 <TextBlock Text="&#xE910;"
                                            FontFamily="{StaticResource IconFont}"
                                            FontSize="12"
-                                           Foreground="{StaticResource AccentSoft}"
+                                           Foreground="{DynamicResource AccentSoft}"
                                            VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="1" Text="{DynamicResource pb.settings.newAccount}" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="2"
                                            Text="&#xE8A7;"
                                            FontFamily="{StaticResource IconFont}"
                                            FontSize="11"
-                                           Foreground="{StaticResource TextMuted}"
+                                           Foreground="{DynamicResource TextMuted}"
                                            VerticalAlignment="Center" />
                             </Grid>
                         </Button>
 
-                        <Border Height="1" Background="{StaticResource PopupBorder}" Margin="2,10" />
+                        <Border Height="1" Background="{DynamicResource PopupBorder}" Margin="2,10" />
 
                         <!-- Filled by RefreshUpdateRow, from the app-wide update state. -->
                         <TextBlock Text="{DynamicResource pb.settings.updates}" Style="{StaticResource SectionLabel}" Margin="8,0,8,6" />
                         <TextBlock x:Name="UpdateStatus"
                                    Style="{StaticResource Hint}"
-                                   Foreground="{StaticResource TextSecondary}"
+                                   Foreground="{DynamicResource TextSecondary}"
                                    TextWrapping="Wrap"
                                    Margin="8,0,8,4" />
                         <Button x:Name="UpdateButton"
@@ -905,9 +1002,32 @@
                                 <TextBlock x:Name="UpdateIcon"
                                            FontFamily="{StaticResource IconFont}"
                                            FontSize="12"
-                                           Foreground="{StaticResource AccentSoft}"
+                                           Foreground="{DynamicResource AccentSoft}"
                                            VerticalAlignment="Center" />
                                 <TextBlock x:Name="UpdateButtonText" Grid.Column="1" VerticalAlignment="Center" TextWrapping="Wrap" />
+                            </Grid>
+                        </Button>
+                        <Button Style="{StaticResource MenuRowButton}"
+                                ToolTip="{DynamicResource pb.settings.changelog.tip}"
+                                Click="Changelog_Click">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="22" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="&#xE8A5;"
+                                           FontFamily="{StaticResource IconFont}"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource AccentSoft}"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="{DynamicResource pb.settings.changelog}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="2"
+                                           Text="&#xE8A7;"
+                                           FontFamily="{StaticResource IconFont}"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource TextMuted}"
+                                           VerticalAlignment="Center" />
                             </Grid>
                         </Button>
                         <CheckBox x:Name="AutoUpdateOption"
@@ -928,7 +1048,7 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Left: saved prompts -->
-                <Grid Grid.Column="0" Background="{StaticResource SidebarBg}">
+                <Grid Grid.Column="0" Background="{DynamicResource SidebarBg}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
@@ -944,7 +1064,7 @@
                             <TextBlock Text="&#xE721;"
                                        FontFamily="{StaticResource IconFont}"
                                        FontSize="12"
-                                       Foreground="{StaticResource TextMuted}"
+                                       Foreground="{DynamicResource TextMuted}"
                                        VerticalAlignment="Center"
                                        Margin="10,0,0,0" />
                             <TextBox x:Name="SearchBox"
@@ -982,7 +1102,7 @@
                                 VerticalAlignment="Top"
                                 Visibility="Collapsed">
                         <TextBlock x:Name="EmptyListText"
-                                   Foreground="{StaticResource TextSecondary}"
+                                   Foreground="{DynamicResource TextSecondary}"
                                    HorizontalAlignment="Center" />
                         <Button x:Name="CreateFromSearchButton"
                                 Style="{StaticResource LinkButton}"
@@ -1096,8 +1216,8 @@
 
             <!-- ── Footer: capture, hints, total, send ── -->
             <Border Grid.Row="2"
-                    Background="{StaticResource ChromeBg}"
-                    BorderBrush="{StaticResource Line}"
+                    Background="{DynamicResource ChromeBg}"
+                    BorderBrush="{DynamicResource Line}"
                     BorderThickness="0,1,0,0"
                     Padding="14,10">
                 <Grid>
@@ -1114,7 +1234,7 @@
                     <StackPanel x:Name="CapturePanel" Orientation="Horizontal" VerticalAlignment="Center">
                         <Border x:Name="CaptureThumb"
                                 Width="72" Height="42"
-                                BorderBrush="{StaticResource InputBorder}"
+                                BorderBrush="{DynamicResource InputBorder}"
                                 BorderThickness="1"
                                 Cursor="Hand"
                                 ToolTipService.InitialShowDelay="150"
@@ -1133,7 +1253,7 @@
                                Margin="16,0"
                                HorizontalAlignment="Center"
                                Style="{StaticResource Hint}">
-                        <Run Text="{DynamicResource pb.hint.sendKey}" Foreground="{StaticResource TextSecondary}" /><Run Text="{DynamicResource pb.hint.send}" /><Run Text="↑↓" Foreground="{StaticResource TextSecondary}" /><Run Text="{DynamicResource pb.hint.pick}" /><Run Text="{DynamicResource pb.hint.escKey}" Foreground="{StaticResource TextSecondary}" /><Run Text="{DynamicResource pb.hint.close}" />
+                        <Run Text="{DynamicResource pb.hint.sendKey}" Foreground="{DynamicResource TextSecondary}" /><Run Text="{DynamicResource pb.hint.send}" /><Run Text="↑↓" Foreground="{DynamicResource TextSecondary}" /><Run Text="{DynamicResource pb.hint.pick}" /><Run Text="{DynamicResource pb.hint.escKey}" Foreground="{DynamicResource TextSecondary}" /><Run Text="{DynamicResource pb.hint.close}" />
                     </TextBlock>
 
                     <StackPanel x:Name="UndoPanel"
@@ -1142,7 +1262,7 @@
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
                                 Visibility="Collapsed">
-                        <TextBlock x:Name="UndoText" Style="{StaticResource Hint}" Foreground="{StaticResource TextSecondary}" />
+                        <TextBlock x:Name="UndoText" Style="{StaticResource Hint}" Foreground="{DynamicResource TextSecondary}" />
                         <Button Style="{StaticResource LinkButton}" Content="{DynamicResource pb.undo}" Margin="6,0,0,0" Click="Undo_Click" />
                     </StackPanel>
 

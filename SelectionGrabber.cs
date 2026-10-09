@@ -24,6 +24,9 @@ internal static partial class SelectionGrabber
     private const int KeyReleaseTimeoutMs = 300;
     private const int PollMs = 10;
 
+    // Changes on every clipboard write, by any app.
+    internal static uint ClipboardSequence => GetClipboardSequenceNumber();
+
     // hotkeyKey: the letter of the hotkey that triggered the copy (G).
     internal static async Task<string> CopySelectionAsync(ushort hotkeyKey)
     {

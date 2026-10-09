@@ -49,7 +49,7 @@ Select text anywhere, press **Ctrl+Alt+G**, pick a prompt, **Send**. ChatGPT ope
 | `Alt+↑` / `Alt+↓` | Reorder |
 | `Del` | Delete (with undo) |
 
-Prompts are edited in place and saved as you type. **⚙** holds the language (English / Français), temporary chat, send automatically, text size and updates.
+Prompts are edited in place and saved as you type. **⚙** holds the language (English / Français), the theme (dark / light / Night Dev / VS Code), temporary chat, automatic send (text / with an image), clipboard image first (use your Win+Shift+S capture instead of a new screenshot), text size and updates.
 
 ## Privacy
 

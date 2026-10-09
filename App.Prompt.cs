@@ -37,9 +37,18 @@ public partial class App
     internal double PromptTextSize { get; set; } = PromptWindow.DefaultTextSize;
     internal Rect? ChatWindowBounds { get; set; }
     // ChatGPT options of the settings panel: a temporary chat (nothing in the
-    // account's history), and the send button clicked for the user.
+    // account's history), and the send button clicked for the user — for a
+    // text alone, and for a message with an image.
     internal bool ChatTemporary { get; set; } = true;
-    internal bool ChatAutoSend { get; set; } = true;
+    internal bool ChatAutoSendText { get; set; } = true;
+    internal bool ChatAutoSendImage { get; set; } = true;
+    // Ctrl+Alt+G takes the image already in the clipboard (Win+Shift+S…)
+    // rather than a new screenshot.
+    internal bool ClipboardImageFirst { get; set; }
+
+    // The clipboard as our own screenshot copy left it: that image is not one
+    // the user put there.
+    private uint _ownClipboardSequence;
 
     private void SetupPromptBuilder(IntPtr hotkeyHost)
     {
@@ -93,8 +102,13 @@ public partial class App
         _promptOpening = true;
         try
         {
-            // The screen is captured on a worker thread while Ctrl+C runs.
-            var capture = ScreenCapture.Start();
+            // The clipboard image is read before the Ctrl+C, which may replace
+            // it. Otherwise the screen is captured on a worker thread while
+            // Ctrl+C runs.
+            var capture = (ClipboardImageFirst && SelectionGrabber.ClipboardSequence != _ownClipboardSequence
+                    ? ScreenCapture.FromClipboardImage()
+                    : null)
+                ?? ScreenCapture.Start();
             var text = await SelectionGrabber.CopySelectionAsync((ushort)VK_G);
 
             // ChatGPT loads in the background while a prompt is picked —
@@ -110,7 +124,7 @@ public partial class App
             window.Present();
 
             // After the text: Win+V then lists the screenshot right above it.
-            _ = capture.CopyToClipboardAsync();
+            if (!capture.FromClipboard) CopyToClipboard(capture);
         }
         catch (Exception ex)
         {
@@ -123,13 +137,22 @@ public partial class App
         }
     }
 
+    private async void CopyToClipboard(ScreenCapture capture)
+    {
+        await capture.CopyToClipboardAsync();
+        _ownClipboardSequence = SelectionGrabber.ClipboardSequence;
+    }
+
     // image: the screenshot PNG, possibly still encoding — ChatWindow awaits
     // it only once the page is ready for it.
     internal async void SendToChat(string message, Task<byte[]?>? image) =>
-        await ChatWindowInstance().SendAsync(message, image, ChatAutoSend);
+        await ChatWindowInstance().SendAsync(message, image, image is null ? ChatAutoSendText : ChatAutoSendImage);
 
     // The Prompt Builder's ChatGPT button: the window, nothing sent.
     internal async void OpenChat() => await ChatWindowInstance().OpenAsync();
+
+    // The Prompt Builder is showing: ChatGPT's window gets out of the way.
+    internal void HideChat() => _chatWindow?.StepAside();
 
     private ChatWindow ChatWindowInstance() =>
         _chatWindow ??= new ChatWindow(
@@ -159,7 +182,9 @@ public partial class App
             data["promptBoxHeight"] = FormatNumbers(promptHeight);
         data["promptTextSize"] = FormatNumbers(PromptTextSize);
         data["chatTemporary"] = ChatTemporary.ToString();
-        data["chatAutoSend"] = ChatAutoSend.ToString();
+        data["chatAutoSendText"] = ChatAutoSendText.ToString();
+        data["chatAutoSendImage"] = ChatAutoSendImage.ToString();
+        data["clipboardImageFirst"] = ClipboardImageFirst.ToString();
     }
 
     private void LoadPromptSettings(Dictionary<string, string> data)
@@ -180,8 +205,12 @@ public partial class App
             PromptTextSize = textSize[0];
         if (data.TryGetValue("chatTemporary", out var temporary) && bool.TryParse(temporary, out var isTemporary))
             ChatTemporary = isTemporary;
-        if (data.TryGetValue("chatAutoSend", out var autoSend) && bool.TryParse(autoSend, out var isAutoSend))
-            ChatAutoSend = isAutoSend;
+        if (data.TryGetValue("chatAutoSendText", out var autoText) && bool.TryParse(autoText, out var isAutoText))
+            ChatAutoSendText = isAutoText;
+        if (data.TryGetValue("chatAutoSendImage", out var autoImage) && bool.TryParse(autoImage, out var isAutoImage))
+            ChatAutoSendImage = isAutoImage;
+        if (data.TryGetValue("clipboardImageFirst", out var clipboardFirst) && bool.TryParse(clipboardFirst, out var isClipboardFirst))
+            ClipboardImageFirst = isClipboardFirst;
     }
 
     private static string FormatNumbers(params double[] values) =>

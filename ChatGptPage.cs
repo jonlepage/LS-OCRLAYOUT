@@ -16,6 +16,11 @@ namespace ScreenSearchOverlay;
 // Electron's executeJavaScript, ExecuteScriptAsync does NOT await a returned
 // Promise (it hands back "{}"), so the async send script reports through
 // chrome.webview.postMessage instead of returning.
+// The app's theme, as "#RRGGBB" strings for the page's CSS (see ThemeCss).
+internal sealed record PageColors(
+    string Page, string Raised, string Hover, string Selected, string Sidebar,
+    string Text, string TextSecondary, string TextMuted, string Line, string Border, string Accent);
+
 internal static class ChatGptPage
 {
     // Every send starts from a blank conversation. Temporary (the default
@@ -97,7 +102,7 @@ internal static class ChatGptPage
     // Typing tries execCommand("insertText") first — the path a real keystroke
     // takes, which the page's editor framework hears — then a synthetic paste,
     // then a direct write (enough for a plain textarea). Same ladder as
-    // LSDE2's typeAndSend.
+    // LSDE2's typeAndSend; text on several lines goes paste first (see type).
     internal static string SendScript(string requestId, string text, string? pngBase64, bool submit) => $$"""
         (async () => {
           const id = {{Literal(requestId)}};
@@ -182,18 +187,24 @@ internal static class ChatGptPage
 
             const text = {{Literal(text)}};
             // Replaces the whole content: typing it again changes nothing.
+            const insert = () => {
+              try { return document.execCommand("insertText", false, text); } catch (e) { return false; }
+            };
+            const paste = () => {
+              try {
+                const transfer = new DataTransfer();
+                transfer.setData("text/plain", text);
+                return !field.dispatchEvent(
+                  new ClipboardEvent("paste", { clipboardData: transfer, bubbles: true, cancelable: true }));
+              } catch (e) { return false; }
+            };
+            // The composer's editor drops the line breaks of inserted text
+            // ("prompt:text" on one line) but keeps those of a paste: text on
+            // several lines is pasted first. A plain textarea keeps them either way.
+            const multiline = !isTextarea && text.includes("\n");
             const type = () => {
               selectAll();
-              let typed = false;
-              try { typed = document.execCommand("insertText", false, text); } catch (e) { typed = false; }
-              if (!typed) {
-                try {
-                  const transfer = new DataTransfer();
-                  transfer.setData("text/plain", text);
-                  typed = !field.dispatchEvent(
-                    new ClipboardEvent("paste", { clipboardData: transfer, bubbles: true, cancelable: true }));
-                } catch (e) { typed = false; }
-              }
+              let typed = multiline ? paste() || insert() : insert() || paste();
               if (!typed) {
                 if (isTextarea) field.value = text;
                 else field.textContent = text;
@@ -220,6 +231,79 @@ internal static class ChatGptPage
           } catch (error) {
             post({ ok: false, at: "script", detail: String(error) });
           }
+        })();
+        """;
+
+    // ── Theme ──
+
+    // The app's theme over ChatGPT's colors. The page draws everything from
+    // CSS custom properties on <html> (.dark / .light): overriding them
+    // recolors it without touching its layout. Two generations of names are
+    // listed — an unknown one is harmless — so a partial rollout still takes.
+    internal static string ThemeCss(PageColors c) => $$"""
+        html, html.dark, html.light, .dark, .light {
+          --main-surface-primary: {{c.Page}} !important;
+          --main-surface-secondary: {{c.Raised}} !important;
+          --main-surface-tertiary: {{c.Hover}} !important;
+          --sidebar-surface-primary: {{c.Sidebar}} !important;
+          --sidebar-surface-secondary: {{c.Hover}} !important;
+          --sidebar-surface-tertiary: {{c.Selected}} !important;
+          --bg-primary: {{c.Page}} !important;
+          --bg-secondary: {{c.Raised}} !important;
+          --bg-tertiary: {{c.Hover}} !important;
+          --bg-elevated-primary: {{c.Raised}} !important;
+          --bg-elevated-secondary: {{c.Raised}} !important;
+          --message-surface: {{c.Raised}} !important;
+          --composer-surface-primary: {{c.Raised}} !important;
+          --text-primary: {{c.Text}} !important;
+          --text-secondary: {{c.TextSecondary}} !important;
+          --text-tertiary: {{c.TextMuted}} !important;
+          --border-light: {{c.Line}} !important;
+          --border-medium: {{c.Border}} !important;
+          --border-default: {{c.Border}} !important;
+        }
+        html, body, main { background-color: {{c.Page}} !important; }
+        nav, aside, #stage-slideover-sidebar { background-color: {{c.Sidebar}} !important; }
+        {{SendButtons}} { background-color: {{c.Accent}} !important; color: #fff !important; }
+        {{SendButtons.Replace(",", " *,")}} * { background-color: transparent !important; }
+        """;
+
+    // Every send button state, enabled or not (SendSelector without its :not).
+    private static string SendButtons => SendSelector.Replace(":not([disabled])", "");
+
+    // In every theme: a desktop application, not a phone one. Square corners
+    // (2 px at most) and a 14 px base instead of 16 — the page sizes its
+    // paddings and gaps in rem, so everything tightens with the text.
+    internal const string CompactCss = """
+        html { font-size: 14px !important; }
+        *, *::before, *::after { border-radius: 2px !important; }
+
+        """;
+
+    // Runs in every new document (AddScriptToExecuteOnDocumentCreated) and,
+    // on a theme change, in the current one: CompactCss, plus ThemeCss
+    // except in the dark theme (ChatGPT's own colors).
+    //
+    // A constructed stylesheet, not a <style> element: the page's
+    // Content-Security-Policy may refuse inline styles but not the CSSOM, and
+    // its framework cannot drop it when it rebuilds <head>. It is adopted
+    // once the document can take it — at creation time there is no page yet —
+    // and kept in window so a theme change only replaces its rules.
+    internal static string ThemeScript(string css) => $$"""
+        (() => {
+          const css = {{Literal(css)}};
+          let sheet = window.__lsThemeSheet;
+          if (!sheet) {
+            sheet = window.__lsThemeSheet = new CSSStyleSheet();
+          }
+          sheet.replaceSync(css);
+          const adopt = () => {
+            if (!document.adoptedStyleSheets.includes(sheet))
+              document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+          };
+          try { adopt(); } catch (e) { }
+          document.addEventListener("DOMContentLoaded", adopt);
+          window.addEventListener("load", adopt);
         })();
         """;
 

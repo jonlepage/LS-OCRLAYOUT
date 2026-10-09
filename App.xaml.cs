@@ -45,6 +45,8 @@ public partial class App : Application
     internal string TranslateTarget { get; set; } = "fr";
     // UI language of the Prompt Builder and the tray menu (Loc).
     internal string Language { get; set; } = Loc.DefaultCode();
+    // Prompt Builder and ChatGPT window (Theme).
+    internal string ThemeName { get; set; } = Theme.Dark;
 
     // Tray items whose text follows the UI language.
     private Forms.ToolStripItem? _trayFindHint;
@@ -58,10 +60,17 @@ public partial class App : Application
 
         // Before the hotkeys: after an update, the previous version still holds them.
         var afterUpdate = Updater.FinishUpdate(e.Args);
+        if (!ClaimSingleInstance(afterUpdate))
+        {
+            Shutdown();
+            return;
+        }
         LoadHistory();
         LoadSettings();
         Loc.Apply(Language);
+        Theme.Apply(ThemeName);
         SetupTrayIcon();
+        ListenForSecondLaunch();
 
         var parameters = new HwndSourceParameters("HotkeyHost")
         {
@@ -168,6 +177,13 @@ public partial class App : Application
         RefreshTrayUpdate();
     }
 
+    internal void SetTheme(string name)
+    {
+        ThemeName = name;
+        Theme.Apply(name);
+        SaveSettings();
+    }
+
     internal void SetLanguage(string code)
     {
         Language = code;
@@ -207,6 +223,8 @@ public partial class App : Application
             _trayIcon.Dispose();
         }
 
+        // Last: everything is saved, the next instance may start.
+        ReleaseSingleInstance();
         base.OnExit(e);
     }
 
@@ -288,6 +306,7 @@ public partial class App : Application
                 ["translateTarget"] = TranslateTarget,
                 ["disabledOcrLanguages"] = string.Join(",", _disabledOcrLanguages),
                 ["language"] = Language,
+                ["theme"] = ThemeName,
                 ["checkUpdates"] = CheckUpdatesAutomatically.ToString(),
             };
             if (LastUpdateCheck is { } lastCheck)
@@ -326,6 +345,8 @@ public partial class App : Application
                         TranslateTarget = target;
                     if (data.TryGetValue("language", out var language) && !string.IsNullOrWhiteSpace(language))
                         Language = language;
+                    if (data.TryGetValue("theme", out var theme) && !string.IsNullOrWhiteSpace(theme))
+                        ThemeName = theme;
                     if (data.TryGetValue("checkUpdates", out var checkUpdates) && bool.TryParse(checkUpdates, out var check))
                         CheckUpdatesAutomatically = check;
                     if (data.TryGetValue("lastUpdateCheck", out var lastCheck) &&

@@ -82,6 +82,9 @@ public sealed class SavedPrompt : INotifyPropertyChanged
     // After a language change: "Sans titre" / "Untitled".
     internal void RefreshDisplayName() => Notify(nameof(DisplayName));
 
+    // After a theme change: the same color, shown in the other theme's shade.
+    internal void RefreshTitleColor() => Notify(nameof(TitleColor));
+
     private void Notify(params string[] names)
     {
         foreach (var name in names)
