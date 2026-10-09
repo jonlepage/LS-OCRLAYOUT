@@ -4,10 +4,8 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Interop;
-using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Web.WebView2.Core;
-using Color = System.Windows.Media.Color;
 
 namespace ScreenSearchOverlay;
 
@@ -45,6 +43,7 @@ public partial class ChatWindow : Window
     private readonly Func<bool> _temporaryChat;
     private readonly Dictionary<string, TaskCompletionSource<JsonElement>> _pending = [];
     private readonly DispatcherTimer _statusHide = new() { Interval = TimeSpan.FromSeconds(4) };
+    private StatusKind _status;
 
     private Task? _initialization;
     private Task? _preheat;
@@ -338,6 +337,12 @@ public partial class ChatWindow : Window
         core.WebMessageReceived += OnWebMessage;
         core.NavigationStarting += OnNavigationStarting;
         core.ProcessFailed += OnProcessFailed;
+        // The user pressed Enter: the conversation gets its own address.
+        core.HistoryChanged += (_, _) =>
+        {
+            if (_status == StatusKind.Ready && StatusBar.Visibility == Visibility.Visible)
+                StatusBar.Visibility = Visibility.Collapsed;
+        };
         // Links ChatGPT opens in a new tab (sources, citations) go to the
         // system browser.
         core.NewWindowRequested += (_, e) =>
@@ -475,6 +480,8 @@ public partial class ChatWindow : Window
         _preheat = null;
         _preparedTemporary = null;
         _themeScriptId = null;
+        // Like the first one: a control only starts in a window shown once.
+        _realized = false;
         if (IsVisible && !_sending) Preheat();
     }
 
@@ -486,6 +493,7 @@ public partial class ChatWindow : Window
     private void ShowStatus(StatusKind kind, string text)
     {
         _statusHide.Stop();
+        _status = kind;
         var (glyph, color) = kind switch
         {
             StatusKind.Working => ("", "StatusInfo"),

@@ -640,7 +640,7 @@ public partial class PromptWindow : Window
         UpdateIcon.Text = available ? "\uE896" : "\uE895"; // Download, Sync
         UpdateButton.IsEnabled = !_app.UpdateBusy;
 
-        // The title bar's pill: the offer, then the download's progress \u2014
+        // The title bar's pill: the offer, then the download's progress —
         // shown, not clickable, so it keeps its full color.
         var downloading = _app.UpdateStage == UpdateStage.Downloading;
         UpdateBanner.Visibility = available || downloading ? Visibility.Visible : Visibility.Collapsed;
@@ -715,11 +715,20 @@ public partial class PromptWindow : Window
         var inSearch = SearchBox.IsKeyboardFocusWithin;
         var inList = PromptList.IsKeyboardFocusWithin;
 
+        // The MCP dialog is modal: Esc closes it, no other shortcut reaches
+        // the window behind it (Ctrl+Enter would send).
+        if (McpDialog.Visibility == Visibility.Visible)
+        {
+            if (key == Key.Escape && none)
+            {
+                McpDialog.Visibility = Visibility.Collapsed;
+                e.Handled = true;
+            }
+            return;
+        }
+
         switch (key)
         {
-            case Key.Escape when none && McpDialog.Visibility == Visibility.Visible:
-                McpDialog.Visibility = Visibility.Collapsed;
-                break;
             case Key.Escape when none && SettingsPopup.IsOpen:
                 SettingsPopup.IsOpen = false;
                 break;
@@ -839,6 +848,7 @@ public partial class PromptWindow : Window
     {
         e.Cancel = true;
         SettingsPopup.IsOpen = false;
+        McpDialog.Visibility = Visibility.Collapsed;
 
         // "Nouveau prompt" then nothing typed: not worth keeping.
         foreach (var blank in _app.Prompts.Where(p => string.IsNullOrWhiteSpace(p.Name) && string.IsNullOrWhiteSpace(p.Prompt)).ToList())

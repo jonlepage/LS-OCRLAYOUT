@@ -46,9 +46,10 @@ public partial class App
     // rather than a new screenshot.
     internal bool ClipboardImageFirst { get; set; }
 
-    // The clipboard as our own screenshot copy left it: that image is not one
-    // the user put there.
-    private uint _ownClipboardSequence;
+    // The clipboard as we last left it or read it: our own screenshot copy
+    // is not an image the user put there, and an image already sent once is
+    // not sent again — the next Ctrl+Alt+G takes a fresh screenshot.
+    private uint _spentClipboardSequence;
 
     private void SetupPromptBuilder(IntPtr hotkeyHost)
     {
@@ -105,10 +106,12 @@ public partial class App
             // The clipboard image is read before the Ctrl+C, which may replace
             // it. Otherwise the screen is captured on a worker thread while
             // Ctrl+C runs.
-            var capture = (ClipboardImageFirst && SelectionGrabber.ClipboardSequence != _ownClipboardSequence
+            var sequence = SelectionGrabber.ClipboardSequence;
+            var capture = (ClipboardImageFirst && sequence != _spentClipboardSequence
                     ? ScreenCapture.FromClipboardImage()
                     : null)
                 ?? ScreenCapture.Start();
+            if (capture.FromClipboard) _spentClipboardSequence = sequence;
             var text = await SelectionGrabber.CopySelectionAsync((ushort)VK_G);
 
             // ChatGPT loads in the background while a prompt is picked —
@@ -140,7 +143,7 @@ public partial class App
     private async void CopyToClipboard(ScreenCapture capture)
     {
         await capture.CopyToClipboardAsync();
-        _ownClipboardSequence = SelectionGrabber.ClipboardSequence;
+        _spentClipboardSequence = SelectionGrabber.ClipboardSequence;
     }
 
     // image: the screenshot PNG, possibly still encoding — ChatWindow awaits

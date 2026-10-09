@@ -16,11 +16,6 @@ namespace ScreenSearchOverlay;
 // Electron's executeJavaScript, ExecuteScriptAsync does NOT await a returned
 // Promise (it hands back "{}"), so the async send script reports through
 // chrome.webview.postMessage instead of returning.
-// The app's theme, as "#RRGGBB" strings for the page's CSS (see ThemeCss).
-internal sealed record PageColors(
-    string Page, string Raised, string Hover, string Selected, string Sidebar,
-    string Text, string TextSecondary, string TextMuted, string Line, string Border, string Accent);
-
 internal static class ChatGptPage
 {
     // Every send starts from a blank conversation. Temporary (the default
@@ -311,3 +306,8 @@ internal static class ChatGptPage
     // escaped: user text can never break out of the injected script.
     private static string Literal(string value) => JsonSerializer.Serialize(value);
 }
+
+// The app's theme, as "#RRGGBB" strings for the page's CSS (see ThemeCss).
+internal sealed record PageColors(
+    string Page, string Raised, string Hover, string Selected, string Sidebar,
+    string Text, string TextSecondary, string TextMuted, string Line, string Border, string Accent);
