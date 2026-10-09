@@ -317,15 +317,16 @@
         </Style>
 
         <!-- The title bar's "new version" pill. -->
-        <!-- The title bar's tip link: discreet until hovered. -->
+        <!-- The title bar's tip link: a pink heart that catches the eye, the
+             text quiet beside it, both brighter when hovered. -->
         <Style x:Key="QuietLink" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
-            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondary}" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Padding" Value="8,3" />
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="Transparent" />
-                    <Setter Property="Foreground" Value="{DynamicResource AccentSoft}" />
+                    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -740,9 +741,18 @@
                             Style="{StaticResource QuietLink}"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
-                            Content="{DynamicResource pb.tea}"
                             ToolTip="{DynamicResource pb.tea.tip}"
-                            Click="TeaLink_Click" />
+                            Click="TeaLink_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE00B;"
+                                       FontFamily="{StaticResource IconFont}"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource Heart}"
+                                       VerticalAlignment="Center"
+                                       Margin="0,1,7,0" />
+                            <TextBlock Text="{DynamicResource pb.tea}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                     <!-- A newer version: one click downloads, installs and
                          restarts; the download's progress shows in it.
                          Filled by RefreshUpdateRow. -->
