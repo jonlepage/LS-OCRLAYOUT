@@ -51,7 +51,7 @@ Select text anywhere, press **Ctrl+Alt+G**, pick a prompt, **Send**. ChatGPT ope
 
 Click the screenshot thumbnail to capture a region of the screen instead (Windows' snipping tool): it is attached right away.
 
-Prompts are edited in place and saved as you type. **⚙** holds the language (English / Français), the theme (dark / light / Night Dev / VS Code), temporary chat, automatic send (text / with an image), clipboard image first (use your Win+Shift+S capture instead of a new screenshot), text size and updates.
+Prompts are edited in place and saved as you type. **⚙** holds the language (16 of them), the theme (dark / light / Night Dev / VS Code), temporary chat, automatic send (text / with an image), clipboard image first (use your Win+Shift+S capture instead of a new screenshot), text size and updates.
 
 ### Add prompts from an AI agent (MCP)
 

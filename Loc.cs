@@ -3,26 +3,57 @@ using System.Windows;
 
 namespace ScreenSearchOverlay;
 
-// A UI language. Always shown as "name (code)": the name alone is unreadable
-// for someone who doesn't speak it, the ISO 639-1 code is the same in every
-// language.
-internal sealed record UiLanguage(string Code, string Name)
-{
-    public string Label => $"{Name} ({Code})";
-}
+// A UI language: its own name, and its code shown small beside it — the name
+// alone is unreadable for someone who doesn't speak it, the code is the same
+// in every language.
+internal sealed record UiLanguage(string Code, string Name);
 
-// UI strings of the Prompt Builder, the ChatGPT window and the tray menu.
+// UI strings of the Prompt Builder, the ChatGPT window, the overlay and the
+// tray menu.
 //
-// One table per language; adding a language is adding a table and a line in
+// One table per language: English and French here, the others in
+// Languages/Loc.<code>.cs. Adding a language is adding a table and a line in
 // Languages. Apply() publishes the current table as an application resource
 // dictionary, so every {DynamicResource key} in XAML follows a language
 // change live; code reads strings through T().
-internal static class Loc
+internal static partial class Loc
 {
-    internal static readonly UiLanguage[] Languages = [new("en", "English"), new("fr", "Français")];
+    internal static readonly UiLanguage[] Languages =
+    [
+        new("en", "English"),
+        new("fr", "Français"),
+        new("de", "Deutsch"),
+        new("es", "Español"),
+        new("it", "Italiano"),
+        new("pt-BR", "Português (Brasil)"),
+        new("pl", "Polski"),
+        new("tr", "Türkçe"),
+        new("id", "Bahasa Indonesia"),
+        new("vi", "Tiếng Việt"),
+        new("ru", "Русский"),
+        new("uk", "Українська"),
+        new("ja", "日本語"),
+        new("ko", "한국어"),
+        new("zh-Hans", "简体中文"),
+        new("zh-Hant", "繁體中文"),
+    ];
 
     private static readonly Dictionary<string, Dictionary<string, string>> Tables = new()
     {
+        ["de"] = German(),
+        ["es"] = Spanish(),
+        ["it"] = Italian(),
+        ["pt-BR"] = Portuguese(),
+        ["pl"] = Polish(),
+        ["tr"] = Turkish(),
+        ["id"] = Indonesian(),
+        ["vi"] = Vietnamese(),
+        ["ru"] = Russian(),
+        ["uk"] = Ukrainian(),
+        ["ja"] = Japanese(),
+        ["ko"] = Korean(),
+        ["zh-Hans"] = ChineseSimplified(),
+        ["zh-Hant"] = ChineseTraditional(),
         ["en"] = new()
         {
             ["pb.close"] = "Close (Esc)",
@@ -355,18 +386,33 @@ internal static class Loc
 
     internal static event Action? Changed;
 
-    // The system's UI language when we have it, English otherwise.
+    // The system's UI language when we have it, English otherwise. Chinese
+    // goes by script (Taiwan, Hong Kong, Macao: traditional), Portuguese to
+    // the Brazilian table, the only one.
     internal static string DefaultCode()
     {
-        var system = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
-        return Tables.ContainsKey(system) ? system : "en";
+        var ui = CultureInfo.CurrentUICulture;
+        var code = ui.TwoLetterISOLanguageName switch
+        {
+            "zh" => IsTraditionalChinese(ui) ? "zh-Hant" : "zh-Hans",
+            "pt" => "pt-BR",
+            var two => two,
+        };
+        return Tables.ContainsKey(code) ? code : "en";
+    }
+
+    private static bool IsTraditionalChinese(CultureInfo culture)
+    {
+        for (var c = culture; !string.IsNullOrEmpty(c.Name); c = c.Parent)
+            if (c.Name is "zh-Hant" or "zh-TW" or "zh-HK" or "zh-MO") return true;
+        return false;
     }
 
     internal static void Apply(string code)
     {
         if (!Tables.ContainsKey(code)) code = "en";
         Current = code;
-        Culture = CultureInfo.GetCultureInfo(code + "-CA");
+        Culture = CultureFor(code);
 
         var dictionary = new ResourceDictionary();
         foreach (var (key, value) in Tables[code])
@@ -389,13 +435,39 @@ internal static class Loc
 
     internal static string T(string key, params object[] arguments) => string.Format(Culture, T(key), arguments);
 
+    // Canadian English and French, as before; the others in their own
+    // culture (pt-BR, zh-Hans… are all known to .NET).
+    private static CultureInfo CultureFor(string code)
+    {
+        try { return CultureInfo.GetCultureInfo(code is "en" or "fr" ? code + "-CA" : code); }
+        catch (CultureNotFoundException) { return CultureInfo.InvariantCulture; }
+    }
+
     internal static string Characters(int count) => Plural("pb.chars", count);
 
-    // key.one / key.other with the count formatted for the language. French
-    // and English disagree on zero: "0 caractère" but "0 characters".
+    // key.one / .few / .many / .other with the count formatted for the
+    // language; a table without that form uses .other. French and English
+    // disagree on zero ("0 caractère", "0 characters"); Russian, Ukrainian
+    // and Polish have three forms (1 символ, 2 символа, 5 символов);
+    // Japanese, Korean, Chinese, Indonesian, Vietnamese and Turkish one.
     internal static string Plural(string key, int count)
     {
-        var singular = Current == "fr" ? count <= 1 : count == 1;
-        return T(key + (singular ? ".one" : ".other"), count.ToString("N0", Culture));
+        var form = key + "." + PluralForm(count);
+        if (!Tables[Current].ContainsKey(form)) form = key + ".other";
+        return T(form, count.ToString("N0", Culture));
+    }
+
+    private static string PluralForm(int n)
+    {
+        var tens = n % 100;
+        var fewEnding = n % 10 is >= 2 and <= 4 && tens is < 12 or > 14;
+        return Current switch
+        {
+            "fr" or "pt-BR" => n <= 1 ? "one" : "other",
+            "ru" or "uk" => n % 10 == 1 && tens != 11 ? "one" : fewEnding ? "few" : "many",
+            "pl" => n == 1 ? "one" : fewEnding ? "few" : "many",
+            "ja" or "ko" or "zh-Hans" or "zh-Hant" or "id" or "vi" or "tr" => "other",
+            _ => n == 1 ? "one" : "other",
+        };
     }
 }

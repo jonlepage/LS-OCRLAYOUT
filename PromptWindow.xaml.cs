@@ -22,8 +22,9 @@ using Size = System.Windows.Size;
 
 namespace ScreenSearchOverlay;
 
-// A language or a theme of the settings panel.
-public sealed record LanguageRow(string Code, string Label, bool IsCurrent);
+// A language or a theme of the settings panel. Badge: a language's code,
+// shown small beside its name.
+public sealed record LanguageRow(string Code, string Label, bool IsCurrent, string Badge = "");
 
 // Saved prompts on the left, the text to send on the right. The selected
 // prompt is edited in place and saved as you type; this window only composes
@@ -522,7 +523,7 @@ public partial class PromptWindow : Window
     // The settings rows show the current choice; their submenus list them all.
     private void BuildLanguageRows()
     {
-        LanguageRows.ItemsSource = Loc.Languages.Select(l => new LanguageRow(l.Code, l.Label, l.Code == Loc.Current)).ToList();
+        LanguageRows.ItemsSource = Loc.Languages.Select(l => new LanguageRow(l.Code, l.Name, l.Code == Loc.Current, l.Code)).ToList();
         LanguageValue.Text = Loc.Languages.First(l => l.Code == Loc.Current).Name;
     }
 

@@ -2,6 +2,7 @@
 
 ## 1.6.0
 
+- **16 languages**: Deutsch, Español, Italiano, Português, Polski, Türkçe, Bahasa Indonesia, Tiếng Việt, Русский, Українська, 日本語, 한국어, 简体中文 and 繁體中文 join English and Français.
 - **Capture any part of the screen**: click the screenshot thumbnail.
 - **Use the image you just copied** instead of a new screenshot.
 - **New themes**: Light, Night Dev and VS Code. ChatGPT follows.

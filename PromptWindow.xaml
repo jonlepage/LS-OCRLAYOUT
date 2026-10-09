@@ -836,7 +836,13 @@
                                                                    Foreground="{DynamicResource AccentSoft}"
                                                                    VerticalAlignment="Center"
                                                                    Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVisibility}}" />
-                                                        <TextBlock Grid.Column="1" Text="{Binding Label}" VerticalAlignment="Center" />
+                                                        <!-- The ISO code small and raised, top right of the name. -->
+                                                        <TextBlock Grid.Column="1" VerticalAlignment="Center">
+                                                            <Run Text="{Binding Label, Mode=OneWay}" /><Run Text="{Binding Badge, Mode=OneWay, StringFormat='{} {0}'}"
+                                                                 BaselineAlignment="Superscript"
+                                                                 FontSize="9"
+                                                                 Foreground="{DynamicResource TextMuted}" />
+                                                        </TextBlock>
                                                     </Grid>
                                                 </Button>
                                             </DataTemplate>
