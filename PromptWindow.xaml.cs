@@ -57,6 +57,9 @@ public partial class PromptWindow : Window
     // Edits are saved shortly after you stop typing, not on every keystroke.
     private readonly DispatcherTimer _saveSoon = new() { Interval = TimeSpan.FromMilliseconds(600) };
     private readonly DispatcherTimer _undoExpiry = new() { Interval = TimeSpan.FromSeconds(8) };
+    // The selected prompt is remembered as soon as it is picked, not only when
+    // the window closes: the app may be killed or the session ended first.
+    private readonly DispatcherTimer _saveSelectionSoon = new() { Interval = TimeSpan.FromSeconds(1) };
     private (SavedPrompt Prompt, int Index)? _deleted;
     private ScreenCapture? _capture;
     // The search text, trimmed once per keystroke instead of once per prompt.
@@ -65,6 +68,12 @@ public partial class PromptWindow : Window
     public PromptWindow()
     {
         InitializeComponent();
+
+        // Before _view: Option_Changed ignores these, as it does everything
+        // raised during construction.
+        TemporaryChatOption.IsChecked = _app.ChatTemporary;
+        AutoSendOption.IsChecked = _app.ChatAutoSend;
+        AutoUpdateOption.IsChecked = _app.CheckUpdatesAutomatically;
 
         // A view of our own: the filter must not leak into the app-wide collection.
         _view = new ListCollectionView(_app.Prompts) { Filter = Matches };
@@ -76,8 +85,10 @@ public partial class PromptWindow : Window
 
         _saveSoon.Tick += (_, _) => { _saveSoon.Stop(); _app.SavePromptsInBackground(); };
         _undoExpiry.Tick += (_, _) => HideUndo();
+        _saveSelectionSoon.Tick += (_, _) => { _saveSelectionSoon.Stop(); _app.SaveSettings(); };
         SourceInitialized += (_, _) => ConfigureNativeWindow();
         Loc.Changed += OnLanguageChanged;
+        _app.UpdateChanged += RefreshUpdateRow;
 
         RestoreLayout();
         BuildSwatches();
@@ -87,6 +98,7 @@ public partial class PromptWindow : Window
         Select(_app.Prompts.FirstOrDefault(p => p.Id == _app.LastPromptId) ?? _app.Prompts.FirstOrDefault());
         RefreshListState();
         UpdateEditorState();
+        RefreshUpdateRow();
     }
 
     private SavedPrompt? Selected => PromptList.SelectedItem as SavedPrompt;
@@ -443,6 +455,7 @@ public partial class PromptWindow : Window
         UpdateComposerState();
         CharCount.Text = BodyBox.Text.Length == 0 ? "" : Loc.Characters(BodyBox.Text.Length);
         TextSizeValue.Text = PromptBox.FontSize.ToString("0.#", Loc.Culture);
+        RefreshUpdateRow();
         // The new texts change the hint's and the total's widths: refit once laid out.
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, FitHint);
     }
@@ -461,6 +474,44 @@ public partial class PromptWindow : Window
     {
         SettingsPopup.IsOpen = false;
         try { Process.Start(new ProcessStartInfo(TempMailUrl) { UseShellExecute = true }); } catch { }
+    }
+
+    // The settings checkboxes. Read at use: the next send, the next check.
+    private void Option_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_view is null) return; // during construction
+        _app.ChatTemporary = TemporaryChatOption.IsChecked == true;
+        _app.ChatAutoSend = AutoSendOption.IsChecked == true;
+        _app.CheckUpdatesAutomatically = AutoUpdateOption.IsChecked == true;
+        _app.SaveSettings();
+    }
+
+    // The popup stays open: it shows the check's result, then the download.
+    private void Update_Click(object sender, RoutedEventArgs e) => _app.RunUpdateAction();
+
+    private void RefreshUpdateRow()
+    {
+        var available = _app.UpdateStage == UpdateStage.Available;
+        UpdateStatus.Text = _app.UpdateStatusText;
+        UpdateButtonText.Text = _app.UpdateActionText;
+        UpdateIcon.Text = available ? "\uE896" : "\uE895"; // Download, Sync
+        UpdateButton.IsEnabled = !_app.UpdateBusy;
+
+        // The title bar's pill: the offer, then the download's progress \u2014
+        // shown, not clickable, so it keeps its full color.
+        var downloading = _app.UpdateStage == UpdateStage.Downloading;
+        UpdateBanner.Visibility = available || downloading ? Visibility.Visible : Visibility.Collapsed;
+        UpdateBanner.IsHitTestVisible = available;
+        if (available && _app.AvailableUpdate is { } update)
+        {
+            UpdateBannerText.Text = Loc.T("pb.update.banner", update.Version);
+            UpdateBanner.ToolTip = Loc.T("pb.update.banner.tip", (update.Size / 1048576.0).ToString("0", Loc.Culture));
+        }
+        else if (downloading)
+        {
+            UpdateBannerText.Text = _app.UpdateStatusText;
+            UpdateBanner.ToolTip = null;
+        }
     }
 
     // The keyboard hint is a nicety: when the footer is too narrow for all of
@@ -578,6 +629,13 @@ public partial class PromptWindow : Window
 
     private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
 
+    // Like the send, without the message: this window steps aside for ChatGPT's.
+    private void OpenChat_Click(object sender, RoutedEventArgs e)
+    {
+        Close();
+        _app.OpenChat();
+    }
+
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (_view is null) return;
@@ -592,6 +650,12 @@ public partial class PromptWindow : Window
     {
         if (_view is null) return;
         UpdateEditorState();
+        if (Selected is { } prompt && prompt.Id != _app.LastPromptId)
+        {
+            _app.LastPromptId = prompt.Id;
+            _saveSelectionSoon.Stop();
+            _saveSelectionSoon.Start();
+        }
     }
 
     private void PromptList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -634,6 +698,7 @@ public partial class PromptWindow : Window
         foreach (var blank in _app.Prompts.Where(p => string.IsNullOrWhiteSpace(p.Name) && string.IsNullOrWhiteSpace(p.Prompt)).ToList())
             _app.Prompts.Remove(blank);
         _saveSoon.Stop();
+        _saveSelectionSoon.Stop();
         HideUndo();
 
         _app.LastPromptId = Selected?.Id ?? _app.LastPromptId;

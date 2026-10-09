@@ -336,6 +336,26 @@
             </Style.Triggers>
         </Style>
 
+        <!-- The title bar's "new version" pill. -->
+        <Style x:Key="UpdatePill" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
+            <Setter Property="Background" Value="#1A2B45" />
+            <Setter Property="BorderBrush" Value="#2F4E7E" />
+            <Setter Property="Foreground" Value="#BFDBFE" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="12,4" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource Accent}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource AccentHover}" />
+                    <Setter Property="Foreground" Value="White" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="{StaticResource AccentPressed}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <!-- A row of the settings panel. -->
         <Style x:Key="MenuRowButton" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
             <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
@@ -700,7 +720,9 @@
                 <Grid Margin="14,0,8,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
@@ -712,23 +734,46 @@
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center" />
                     </Border>
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="11,0,0,0">
-                        <TextBlock Text="Prompt Builder" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" />
-                        <Border Margin="10,0,0,0"
-                                Padding="8,2,8,3"
-                                BorderBrush="{StaticResource InputBorder}"
-                                BorderThickness="1"
-                                VerticalAlignment="Center">
-                            <TextBlock Text="{DynamicResource pb.chip}" FontSize="11" Foreground="{StaticResource TextMuted}" />
-                        </Border>
-                    </StackPanel>
-                    <Button x:Name="SettingsButton"
+                    <TextBlock Grid.Column="1"
+                               Text="Prompt Builder"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"
+                               Margin="11,0,0,0" />
+                    <!-- A newer version: one click downloads, installs and
+                         restarts; the download's progress shows in it.
+                         Filled by RefreshUpdateRow. -->
+                    <Button x:Name="UpdateBanner"
                             Grid.Column="2"
+                            Style="{StaticResource UpdatePill}"
+                            Margin="16,0"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Visibility="Collapsed"
+                            Click="Update_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE896;"
+                                       FontFamily="{StaticResource IconFont}"
+                                       FontSize="11"
+                                       FontWeight="Normal"
+                                       VerticalAlignment="Center"
+                                       Margin="0,1,8,0" />
+                            <TextBlock x:Name="UpdateBannerText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Button>
+                    <!-- Straight to ChatGPT, nothing sent. -->
+                    <Button Grid.Column="3"
+                            Style="{StaticResource ChromeButton}"
+                            Content="&#xE8F2;"
+                            ToolTip="{DynamicResource pb.openChat}"
+                            Click="OpenChat_Click" />
+                    <Button x:Name="SettingsButton"
+                            Grid.Column="4"
                             Style="{StaticResource ChromeButton}"
                             Content="&#xE713;"
                             ToolTip="{DynamicResource pb.settings}"
                             Click="SettingsButton_Click" />
-                    <Button Grid.Column="3"
+                    <Button Grid.Column="5"
                             Style="{StaticResource CloseButton}"
                             Content="&#xE8BB;"
                             ToolTip="{DynamicResource pb.close}"
@@ -780,6 +825,22 @@
 
                         <Border Height="1" Background="{StaticResource PopupBorder}" Margin="2,10" />
 
+                        <TextBlock Text="{DynamicResource pb.settings.chatgpt}" Style="{StaticResource SectionLabel}" Margin="8,0,8,8" />
+                        <CheckBox x:Name="TemporaryChatOption"
+                                  Margin="8,0,8,0"
+                                  Content="{DynamicResource pb.settings.temporary}"
+                                  ToolTip="{DynamicResource pb.settings.temporary.tip}"
+                                  Checked="Option_Changed"
+                                  Unchecked="Option_Changed" />
+                        <CheckBox x:Name="AutoSendOption"
+                                  Margin="8,10,8,0"
+                                  Content="{DynamicResource pb.settings.autoSend}"
+                                  ToolTip="{DynamicResource pb.settings.autoSend.tip}"
+                                  Checked="Option_Changed"
+                                  Unchecked="Option_Changed" />
+
+                        <Border Height="1" Background="{StaticResource PopupBorder}" Margin="2,10" />
+
                         <TextBlock Text="{DynamicResource pb.settings.textSize}" Style="{StaticResource SectionLabel}" Margin="8,0,8,6" />
                         <StackPanel Orientation="Horizontal" Margin="8,0">
                             <Button Style="{StaticResource IconButton}"
@@ -823,6 +884,37 @@
                                            VerticalAlignment="Center" />
                             </Grid>
                         </Button>
+
+                        <Border Height="1" Background="{StaticResource PopupBorder}" Margin="2,10" />
+
+                        <!-- Filled by RefreshUpdateRow, from the app-wide update state. -->
+                        <TextBlock Text="{DynamicResource pb.settings.updates}" Style="{StaticResource SectionLabel}" Margin="8,0,8,6" />
+                        <TextBlock x:Name="UpdateStatus"
+                                   Style="{StaticResource Hint}"
+                                   Foreground="{StaticResource TextSecondary}"
+                                   TextWrapping="Wrap"
+                                   Margin="8,0,8,4" />
+                        <Button x:Name="UpdateButton"
+                                Style="{StaticResource MenuRowButton}"
+                                Click="Update_Click">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="22" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="UpdateIcon"
+                                           FontFamily="{StaticResource IconFont}"
+                                           FontSize="12"
+                                           Foreground="{StaticResource AccentSoft}"
+                                           VerticalAlignment="Center" />
+                                <TextBlock x:Name="UpdateButtonText" Grid.Column="1" VerticalAlignment="Center" TextWrapping="Wrap" />
+                            </Grid>
+                        </Button>
+                        <CheckBox x:Name="AutoUpdateOption"
+                                  Margin="8,8,8,2"
+                                  Content="{DynamicResource pb.settings.autoUpdate}"
+                                  Checked="Option_Changed"
+                                  Unchecked="Option_Changed" />
                     </StackPanel>
                 </Border>
             </Popup>

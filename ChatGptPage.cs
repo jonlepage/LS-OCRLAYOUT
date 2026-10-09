@@ -18,9 +18,10 @@ namespace ScreenSearchOverlay;
 // chrome.webview.postMessage instead of returning.
 internal static class ChatGptPage
 {
-    // Temporary chat: nothing lands in an account's history, and every send
-    // starts from a blank conversation.
-    internal const string NewConversationUrl = "https://chatgpt.com/?temporary-chat=true";
+    // Every send starts from a blank conversation. Temporary (the default
+    // setting): nothing lands in the account's history.
+    internal static string NewConversationUrl(bool temporary) =>
+        temporary ? "https://chatgpt.com/?temporary-chat=true" : "https://chatgpt.com/";
 
     private const string PromptSelector =
         "div#prompt-textarea[contenteditable=\"true\"], " +
@@ -70,8 +71,10 @@ internal static class ChatGptPage
         """;
 
     // Attach the screenshot (optional), type the text, wait for the send
-    // button to come alive, click it. Posts { id, ok, at, imageAttached,
-    // pastes } — pastes: how many tries the page took to accept the image.
+    // button to come alive, click it — or, submit false, leave the message
+    // in the composer for the user to send. Posts { id, ok, at,
+    // imageAttached, pastes } — pastes: how many tries the page took to
+    // accept the image.
     //
     // The composer is server-rendered: it is in the page before the scripts
     // that listen to it. A send into a document loaded a moment ago — the
@@ -95,7 +98,7 @@ internal static class ChatGptPage
     // takes, which the page's editor framework hears — then a synthetic paste,
     // then a direct write (enough for a plain textarea). Same ladder as
     // LSDE2's typeAndSend.
-    internal static string SendScript(string requestId, string text, string? pngBase64) => $$"""
+    internal static string SendScript(string requestId, string text, string? pngBase64, bool submit) => $$"""
         (async () => {
           const id = {{Literal(requestId)}};
           const sendSelector = {{Literal(SendSelector)}};
@@ -200,7 +203,9 @@ internal static class ChatGptPage
             if (text.length > 0) type();
 
             // Text typed before the page listens is in the field, but the page
-            // doesn't know it and keeps its button off (see above).
+            // doesn't know it and keeps its button off (see above). Waited
+            // for even when not submitting: a live button is the proof the
+            // page took the message, and Enter will send it.
             let button = await waitFor(sendSelector, 500);
             for (const until = Date.now() + {{SendTimeoutMs}}; !button && Date.now() < until;) {
               if (text.length > 0) type();
@@ -210,7 +215,8 @@ internal static class ChatGptPage
             // Reported BEFORE the click: if sending navigates the page, this
             // script dies with the document and could never report after.
             post({ ok: true, at: "", imageAttached: imageAttached, pastes: pastes });
-            button.click();
+            if ({{(submit ? "true" : "false")}}) button.click();
+            else field.focus();
           } catch (error) {
             post({ ok: false, at: "script", detail: String(error) });
           }

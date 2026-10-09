@@ -41,6 +41,8 @@ public partial class ChatWindow : Window
     private readonly string _userDataFolder;
     private readonly Action<Rect> _saveBounds;
     private readonly Action _backToPromptBuilder;
+    // The setting, read at every send: it can change between two.
+    private readonly Func<bool> _temporaryChat;
     private readonly Dictionary<string, TaskCompletionSource<JsonElement>> _pending = [];
     private readonly DispatcherTimer _statusHide = new() { Interval = TimeSpan.FromSeconds(4) };
 
@@ -48,17 +50,20 @@ public partial class ChatWindow : Window
     private Task? _preheat;
     // The page sits on a blank conversation, untouched, ready to receive.
     private bool _pristine;
+    // The mode the page was last loaded in; null until it was loaded at all.
+    private bool? _preparedTemporary;
     private bool _sending;
     private bool _closingForGood;
     // Shown once, off-screen, so the WebView could initialize (see RealizeOffScreen).
     private bool _realized;
 
-    internal ChatWindow(string userDataFolder, Rect? bounds, Action<Rect> saveBounds, Action backToPromptBuilder)
+    internal ChatWindow(string userDataFolder, Rect? bounds, Action<Rect> saveBounds, Action backToPromptBuilder, Func<bool> temporaryChat)
     {
         InitializeComponent();
         _userDataFolder = userDataFolder;
         _saveBounds = saveBounds;
         _backToPromptBuilder = backToPromptBuilder;
+        _temporaryChat = temporaryChat;
 
         WebView.DefaultBackgroundColor = System.Drawing.Color.FromArgb(0x21, 0x21, 0x21);
         _statusHide.Tick += (_, _) => { _statusHide.Stop(); StatusBar.Visibility = Visibility.Collapsed; };
@@ -78,11 +83,12 @@ public partial class ChatWindow : Window
 
     // Called on every Ctrl+Alt+G. Hidden and already blank: nothing to do.
     // Visible, the page may show an answer or something typed by hand, and
-    // the coming send starts a new conversation anyway: start it now.
+    // the coming send starts a new conversation anyway: start it now. Same
+    // when the temporary chat setting changed since the page was loaded.
     internal void Preheat()
     {
         if (_sending || _preheat is { IsCompleted: false }) return;
-        if (_pristine && !IsVisible) return;
+        if (_pristine && !IsVisible && _preparedTemporary == _temporaryChat()) return;
         _preheat = PreheatAsync();
     }
 
@@ -145,9 +151,11 @@ public partial class ChatWindow : Window
     // cookie banner is refused on the way (once per profile: it is stored).
     private async Task<bool> PrepareConversationAsync()
     {
+        var temporary = _temporaryChat();
+        _preparedTemporary = temporary;
         await NewDocumentAsync(() =>
         {
-            WebView.CoreWebView2.Navigate(ChatGptPage.NewConversationUrl);
+            WebView.CoreWebView2.Navigate(ChatGptPage.NewConversationUrl(temporary));
             return Task.FromResult(true);
         }, NavigationTimeoutMs);
         if (!await WaitForComposerAsync()) return false;
@@ -161,8 +169,9 @@ public partial class ChatWindow : Window
     // ── Send ──
 
     // image: the screenshot PNG, possibly still encoding — awaited only once
-    // the page is ready, so encoding overlaps the page load.
-    internal async Task SendAsync(string message, Task<byte[]?>? image)
+    // the page is ready, so encoding overlaps the page load. submit false:
+    // the message is left in the composer, the user presses Enter.
+    internal async Task SendAsync(string message, Task<byte[]?>? image, bool submit)
     {
         if (_sending) return;
         _sending = true;
@@ -180,7 +189,7 @@ public partial class ChatWindow : Window
             _preheat = null;
             await EnsureInitializedAsync();
 
-            if (!_pristine && !await PrepareConversationAsync())
+            if ((!_pristine || _preparedTemporary != _temporaryChat()) && !await PrepareConversationAsync())
             {
                 ShowStatus(StatusKind.Error, Loc.T("chat.noComposer"));
                 return;
@@ -196,14 +205,15 @@ public partial class ChatWindow : Window
             _pending[id] = result;
             try
             {
-                await WebView.CoreWebView2.ExecuteScriptAsync(ChatGptPage.SendScript(id, message, png is null ? null : Convert.ToBase64String(png)));
+                await WebView.CoreWebView2.ExecuteScriptAsync(
+                    ChatGptPage.SendScript(id, message, png is null ? null : Convert.ToBase64String(png), submit));
                 var finished = await Task.WhenAny(result.Task, Task.Delay(SendResultTimeoutMs));
                 if (finished != result.Task)
                 {
                     ShowStatus(StatusKind.Error, Loc.T("chat.timeout"));
                     return;
                 }
-                Report(result.Task.Result, watch.Elapsed);
+                Report(result.Task.Result, watch.Elapsed, submit);
             }
             finally
             {
@@ -226,7 +236,54 @@ public partial class ChatWindow : Window
         }
     }
 
-    private void Report(JsonElement result, TimeSpan elapsed)
+    // ── Open, nothing sent ──
+
+    // The Prompt Builder's ChatGPT button. The page is left as it is — the
+    // preheated blank conversation, or the last answer — unless it was never
+    // loaded, or is blank but in the other mode (temporary or not).
+    internal async Task OpenAsync()
+    {
+        Show();
+        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+        Activate();
+        if (_sending) return;
+
+        try
+        {
+            if (_preheat is { IsCompleted: false } running) await running;
+            // Here rather than in the preheat, which swallows its errors: a
+            // missing WebView2 runtime must be said.
+            await EnsureInitializedAsync();
+            if (_preparedTemporary is null || (_pristine && _preparedTemporary != _temporaryChat()))
+            {
+                ShowStatus(StatusKind.Working, Loc.T("chat.opening"));
+                _preheat = PreheatAsync();
+                await _preheat;
+                if (!_pristine)
+                {
+                    ShowStatus(StatusKind.Error, Loc.T("chat.noComposer"));
+                    return;
+                }
+                StatusBar.Visibility = Visibility.Collapsed;
+            }
+            WebView.Focus();
+            // From now on the user may type or send in it: the next send
+            // starts its own conversation.
+            _pristine = false;
+        }
+        catch (WebView2RuntimeNotFoundException)
+        {
+            _initialization = null;
+            ShowStatus(StatusKind.Error, Loc.T("chat.noRuntime"));
+        }
+        catch (Exception ex)
+        {
+            if (_initialization is { IsFaulted: true }) _initialization = null;
+            ShowStatus(StatusKind.Error, Loc.T("chat.failed", ex.Message));
+        }
+    }
+
+    private void Report(JsonElement result, TimeSpan elapsed, bool submitted)
     {
         var ok = result.TryGetProperty("ok", out var okValue) && okValue.ValueKind == JsonValueKind.True;
         var at = result.TryGetProperty("at", out var atValue) ? atValue.GetString() : "";
@@ -236,9 +293,11 @@ public partial class ChatWindow : Window
         var took = elapsed.TotalSeconds.ToString("0.0", Loc.Culture) + " s";
 
         if (ok && imageMissed)
-            ShowStatus(StatusKind.Warning, Loc.T("chat.sentNoImage", took));
-        else if (ok)
+            ShowStatus(StatusKind.Warning, Loc.T(submitted ? "chat.sentNoImage" : "chat.insertedNoImage", took));
+        else if (ok && submitted)
             ShowStatus(StatusKind.Success, Loc.T("chat.sent", took));
+        else if (ok)
+            ShowStatus(StatusKind.Ready, Loc.T("chat.inserted", took));
         else
             ShowStatus(StatusKind.Error, at switch
             {
@@ -360,7 +419,8 @@ public partial class ChatWindow : Window
 
     // ── Status strip ──
 
-    private enum StatusKind { Working, Success, Warning, Error }
+    // Ready: the message waits in the composer for the user's Enter.
+    private enum StatusKind { Working, Ready, Success, Warning, Error }
 
     private void ShowStatus(StatusKind kind, string text)
     {
@@ -368,6 +428,7 @@ public partial class ChatWindow : Window
         var (glyph, color) = kind switch
         {
             StatusKind.Working => ("", Color.FromRgb(0x93, 0xC5, 0xFD)),
+            StatusKind.Ready => ("", Color.FromRgb(0x93, 0xC5, 0xFD)),
             StatusKind.Success => ("", Color.FromRgb(0x4A, 0xDE, 0x80)),
             StatusKind.Warning => ("", Color.FromRgb(0xFA, 0xCC, 0x15)),
             _ => ("", Color.FromRgb(0xF4, 0x71, 0x74)),

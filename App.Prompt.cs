@@ -36,6 +36,10 @@ public partial class App
     internal double? PromptBoxHeight { get; set; }
     internal double PromptTextSize { get; set; } = PromptWindow.DefaultTextSize;
     internal Rect? ChatWindowBounds { get; set; }
+    // ChatGPT options of the settings panel: a temporary chat (nothing in the
+    // account's history), and the send button clicked for the user.
+    internal bool ChatTemporary { get; set; } = true;
+    internal bool ChatAutoSend { get; set; } = true;
 
     private void SetupPromptBuilder(IntPtr hotkeyHost)
     {
@@ -122,7 +126,10 @@ public partial class App
     // image: the screenshot PNG, possibly still encoding — ChatWindow awaits
     // it only once the page is ready for it.
     internal async void SendToChat(string message, Task<byte[]?>? image) =>
-        await ChatWindowInstance().SendAsync(message, image);
+        await ChatWindowInstance().SendAsync(message, image, ChatAutoSend);
+
+    // The Prompt Builder's ChatGPT button: the window, nothing sent.
+    internal async void OpenChat() => await ChatWindowInstance().OpenAsync();
 
     private ChatWindow ChatWindowInstance() =>
         _chatWindow ??= new ChatWindow(
@@ -133,7 +140,8 @@ public partial class App
                 ChatWindowBounds = bounds;
                 SaveSettings();
             },
-            backToPromptBuilder: () => (_promptWindow ??= new PromptWindow()).Present());
+            backToPromptBuilder: () => (_promptWindow ??= new PromptWindow()).Present(),
+            temporaryChat: () => ChatTemporary);
 
     // ── settings.json entries (called from SaveSettings / LoadSettings) ──
 
@@ -150,6 +158,8 @@ public partial class App
         if (PromptBoxHeight is { } promptHeight)
             data["promptBoxHeight"] = FormatNumbers(promptHeight);
         data["promptTextSize"] = FormatNumbers(PromptTextSize);
+        data["chatTemporary"] = ChatTemporary.ToString();
+        data["chatAutoSend"] = ChatAutoSend.ToString();
     }
 
     private void LoadPromptSettings(Dictionary<string, string> data)
@@ -168,6 +178,10 @@ public partial class App
             PromptBoxHeight = promptHeight[0];
         if (data.TryGetValue("promptTextSize", out var t) && ParseNumbers(t, 1) is { } textSize)
             PromptTextSize = textSize[0];
+        if (data.TryGetValue("chatTemporary", out var temporary) && bool.TryParse(temporary, out var isTemporary))
+            ChatTemporary = isTemporary;
+        if (data.TryGetValue("chatAutoSend", out var autoSend) && bool.TryParse(autoSend, out var isAutoSend))
+            ChatAutoSend = isAutoSend;
     }
 
     private static string FormatNumbers(params double[] values) =>

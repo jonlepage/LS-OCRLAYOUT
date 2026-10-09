@@ -56,6 +56,8 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        // Before the hotkeys: after an update, the previous version still holds them.
+        var afterUpdate = Updater.FinishUpdate(e.Args);
         LoadHistory();
         LoadSettings();
         Loc.Apply(Language);
@@ -80,6 +82,7 @@ public partial class App : Application
         }
 
         SetupPromptBuilder(_hwndSource.Handle);
+        SetupUpdates(afterUpdate);
     }
 
     private void SetupTrayIcon()
@@ -103,11 +106,10 @@ public partial class App : Application
         var menu = new Forms.ContextMenuStrip();
         // Name on the left, version right-aligned (the shortcut column). The
         // version is the exe's, i.e. package.json's.
-        var version = typeof(App).Assembly.GetName().Version;
         menu.Items.Add(new Forms.ToolStripMenuItem("Screen Search Overlay")
         {
             Enabled = false,
-            ShortcutKeyDisplayString = version is null ? "" : $"v{version.Major}.{version.Minor}.{version.Build}",
+            ShortcutKeyDisplayString = $"v{Updater.Current}",
         });
         menu.Items.Add(new Forms.ToolStripSeparator());
         _trayFindHint = menu.Items.Add("");
@@ -139,6 +141,7 @@ public partial class App : Application
         }
 
         menu.Items.Add(langMenu);
+        _trayUpdate = menu.Items.Add("", null, (_, _) => RunUpdateAction(fromTray: true));
         menu.Items.Add(new Forms.ToolStripSeparator());
         _trayQuit = menu.Items.Add("", null, (_, _) =>
         {
@@ -162,6 +165,7 @@ public partial class App : Application
         _trayPromptHint!.Text = Loc.T("tray.promptHint");
         _trayOcrMenu!.Text = Loc.T("tray.ocr");
         _trayQuit!.Text = Loc.T("tray.quit");
+        RefreshTrayUpdate();
     }
 
     internal void SetLanguage(string code)
@@ -188,6 +192,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        TeardownUpdates();
         if (_hwndSource != null)
         {
             UnregisterHotKey(_hwndSource.Handle, HOTKEY_ID);
@@ -282,8 +287,11 @@ public partial class App : Application
                 ["searchBarY"] = SearchBarY.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 ["translateTarget"] = TranslateTarget,
                 ["disabledOcrLanguages"] = string.Join(",", _disabledOcrLanguages),
-                ["language"] = Language
+                ["language"] = Language,
+                ["checkUpdates"] = CheckUpdatesAutomatically.ToString(),
             };
+            if (LastUpdateCheck is { } lastCheck)
+                data["lastUpdateCheck"] = lastCheck.ToString("o", System.Globalization.CultureInfo.InvariantCulture);
             SavePromptSettings(data);
             var json = JsonSerializer.Serialize(data);
             File.WriteAllText(GetFilePath(SettingsFileName), json);
@@ -318,6 +326,12 @@ public partial class App : Application
                         TranslateTarget = target;
                     if (data.TryGetValue("language", out var language) && !string.IsNullOrWhiteSpace(language))
                         Language = language;
+                    if (data.TryGetValue("checkUpdates", out var checkUpdates) && bool.TryParse(checkUpdates, out var check))
+                        CheckUpdatesAutomatically = check;
+                    if (data.TryGetValue("lastUpdateCheck", out var lastCheck) &&
+                        DateTime.TryParse(lastCheck, System.Globalization.CultureInfo.InvariantCulture,
+                            System.Globalization.DateTimeStyles.RoundtripKind, out var parsedCheck))
+                        LastUpdateCheck = parsedCheck.ToUniversalTime();
                     if (data.TryGetValue("disabledOcrLanguages", out var disabled))
                         _disabledOcrLanguages.UnionWith(disabled.Split(',', StringSplitOptions.RemoveEmptyEntries));
                     LoadPromptSettings(data);

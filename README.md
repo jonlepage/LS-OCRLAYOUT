@@ -79,8 +79,10 @@ Select text anywhere — a web page, a PDF, a chat, any app — press **Ctrl+Alt
 
 1. **Ctrl+Alt+G** copies the selection (a real `Ctrl+C` sent to the active app) and captures the screen under the cursor. Both stay in the clipboard: `Win+V` lists the screenshot right above the text.
 2. **The Prompt Builder opens** on the monitor you are working on: saved prompts on the left, the selected prompt and the text on the right — both editable before sending. No selection? The text box is empty and ready to type or paste into.
-3. **Send** opens ChatGPT in its own window, starts a temporary chat, types the message and sends it. The message is **the prompt, a blank line, then the text**, so a prompt ending with a colon (`Fix this text:`) reads naturally. Tick **Attach screenshot** to send the screen capture with it (hover the thumbnail to preview it, click it to toggle). The footer shows the total ChatGPT will receive, e.g. `Total: 226 characters + screenshot`.
+3. **Send** opens ChatGPT in its own window, starts a new chat (temporary by default), types the message and sends it — or leaves it in ChatGPT's field for you to check and send with `Enter`, if **Send automatically** is unchecked in ⚙. The message is **the prompt, a blank line, then the text**, so a prompt ending with a colon (`Fix this text:`) reads naturally. Tick **Attach screenshot** to send the screen capture with it (hover the thumbnail to preview it, click it to toggle). The footer shows the total ChatGPT will receive, e.g. `Total: 226 characters + screenshot`.
 4. **← Prompt Builder**, top left of the ChatGPT window, brings the Prompt Builder back exactly as it was left — same prompt, text and screenshot — to adjust and send again while the answer stays visible.
+
+The chat button next to ⚙ opens the ChatGPT window directly, without sending anything.
 
 ### Keyboard
 
@@ -108,14 +110,17 @@ Right-click a prompt for the same actions.
 - **Title colors**: while a name is being edited, a palette appears next to it. The color is shown on the title, in the list and on the selection bar, so prompts are recognized at a glance.
 - **First run**: six starter prompts (fix, translate, explain, summarize, rephrase) in the UI language.
 - **Layout**: drag the vertical line to widen the prompt list, and the handle under the prompt box to make it taller. Sizes, text size and window size are remembered.
+- **Last prompt**: the selected prompt is remembered as soon as it is picked, and selected again at the next start.
 
 ### Settings and languages
 
 **⚙** in the title bar:
 
 - **Language**: English (en) or Français (fr), applied live to the whole app — overlay, Prompt Builder, ChatGPT window and tray menu. Languages are always shown with their ISO code, readable whatever the current language. The first run follows the Windows display language. Adding a language is one table in `Loc.cs`.
+- **ChatGPT**: **Temporary chat** (on by default: nothing is kept in the account's history) and **Send automatically** (on by default; off, the message is written into ChatGPT and you press `Enter` yourself).
 - **Text size** of the prompt and text boxes (also `Ctrl+wheel`).
 - **Generate an account**: opens [temp-mail.id](https://temp-mail.id) in your browser, a throwaway address to sign up a ChatGPT account with.
+- **Updates**: the current version, a button to check now or install what was found, and **Check automatically** (see [Updates](#updates)).
 
 Hover the tray icon to see both hotkeys.
 
@@ -126,11 +131,11 @@ The window shows ~60 ms after the hotkey once something is selected (~300 ms mor
 - The screenshot is taken on a worker thread while `Ctrl+C` runs; its thumbnail, its PNG and its clipboard copy are all produced off the UI thread, after the window is up.
 - The window is built while the app is idle after startup, then reused: closing it only hides it.
 - It is a regular window, not a layered one (`AllowsTransparency`), so resizing stays on the GPU. Everything is square, Windows 11 corners included.
-- Every `Ctrl+Alt+G` preheats ChatGPT: a blank temporary chat loads in the background while you pick a prompt, so **Send** usually only has to type. The ChatGPT window's status strip shows how long the send took. If that window was open on a previous answer, the answer is replaced by the new blank chat.
+- Every `Ctrl+Alt+G` preheats ChatGPT: a blank chat loads in the background while you pick a prompt, so **Send** usually only has to type. The ChatGPT window's status strip shows how long the send took. If that window was open on a previous answer, the answer is replaced by the new blank chat.
 
 ### ChatGPT window
 
-A WebView2 created on the first `Ctrl+Alt+G`, then hidden — never closed. It always opens a temporary chat (nothing is kept in any history), in a profile of its own (`ScreenSearchOverlay.WebView2/`); the cookie banner is refused automatically. Links in answers open in your browser.
+A WebView2 created on the first `Ctrl+Alt+G`, then hidden — never closed. It opens a temporary chat by default (nothing is kept in any history; uncheck **Temporary chat** in ⚙ to keep your conversations), in a profile of its own (`ScreenSearchOverlay.WebView2/`); the cookie banner is refused automatically. Links in answers open in your browser.
 
 It works logged out, or logged in to a ChatGPT account: log in once in that window and the session survives restarts (it lives in the profile). At login, accept **Save password**: should the session ever end, the login form fills itself back. Passwords are kept by WebView2's own password store, encrypted for your Windows account — the app never handles them. Keep the profile folder to yourself: it holds the session.
 
@@ -143,6 +148,14 @@ Everything the app knows about chatgpt.com — selectors and injected scripts �
 ## Install
 
 Download `ScreenSearchOverlay.exe` from the [latest release](../../releases/latest). Self-contained, portable.
+
+## Updates
+
+The app checks this repository's [latest release](../../releases/latest) at startup, at most once a day (it lives in the tray for days, and may be restarted many times in one). A check that found a newer version doesn't count: the next start asks again, so the offer shows right away. When a newer version is out, a notification offers it (click it to install), and the Prompt Builder's title bar shows **Version x.y.z available · click to install** — one click downloads, installs and restarts, with the download's progress shown in place. The tray menu and the Prompt Builder's ⚙ also check on demand and install.
+
+Installing downloads the new `.exe` next to the running one, checks it against the size and SHA-256 digest GitHub publishes for it, then swaps the two files where the app lives and restarts it. Windows won't overwrite a running program but lets it be renamed: the running exe becomes `ScreenSearchOverlay.exe.old`, the new one takes its name, starts, waits for the old one to exit, and deletes the `.old`. If anything fails along the way, the files are put back as they were.
+
+In a folder the app cannot write to (`Program Files`…), the update offers to open the download page instead. Uncheck **Check automatically** in ⚙ to stop the automatic checks; debug builds never check on their own.
 
 ## Build
 
@@ -174,6 +187,8 @@ To enable diagnostic logging at `%TEMP%\ls-ocrlayout-scroll.log`, add `<DefineCo
 | `LowLevelMouseHook.cs` | `WH_MOUSE_LL` on a dedicated thread (per MSDN guidance — UI-thread hooks risk silent detachment past `LowLevelHooksTimeout`) |
 | `App.xaml.cs` | global hotkey, tray icon, settings/history persistence |
 | `App.Prompt.cs` | Prompt Builder: `Ctrl+Alt+G`, selection + screenshot capture, prompt/chat window lifetime, its settings |
+| `App.Update.cs` | update checks (startup, at most once a day, on demand), tray balloon and menu item, download and restart |
+| `Updater.cs` | GitHub latest release, download + SHA-256 check, exe swap and post-update cleanup — no UI dependency |
 | `PromptWindow.xaml(.cs)` | prompt list and editor, keyboard navigation, delete/undo; built at idle, hidden on close and reused |
 | `ChatWindow.xaml(.cs)` | ChatGPT in a WebView2: preheated on every `Ctrl+Alt+G`, hidden on close, send status strip with timing |
 | `ChatGptPage.cs` | chatgpt.com selectors + injected scripts — no UI dependency |
@@ -195,7 +210,7 @@ State machine `Idle ↔ Scrolling`. On the first wheel, the window goes `WS_EX_T
 
 ## Files written
 
-- `settings.json` — zen mode, highlight size, search bar size & position, translation target language, unchecked OCR languages, UI language, Prompt Builder window sizes, splitters and text size, last prompt, screenshot checkbox
+- `settings.json` — zen mode, highlight size, search bar size & position, translation target language, unchecked OCR languages, UI language, Prompt Builder window sizes, splitters and text size, last prompt, screenshot checkbox, ChatGPT options (temporary chat, send automatically), automatic update checks
 - `search-history.json` — last 50 searches
 - `prompts.json` — saved prompts with their title color (indented, hand-editable; an unreadable file is set aside as `prompts.json.bak`, never overwritten)
 - `ScreenSearchOverlay.WebView2/` — the ChatGPT window's browser profile (created on the first send)
