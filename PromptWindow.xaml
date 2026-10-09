@@ -876,6 +876,7 @@
                                                         <Grid.ColumnDefinitions>
                                                             <ColumnDefinition Width="22" />
                                                             <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
                                                         </Grid.ColumnDefinitions>
                                                         <TextBlock Text="&#xE73E;"
                                                                    FontFamily="{StaticResource IconFont}"
@@ -883,13 +884,14 @@
                                                                    Foreground="{DynamicResource AccentSoft}"
                                                                    VerticalAlignment="Center"
                                                                    Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVisibility}}" />
-                                                        <!-- The ISO code small and raised, top right of the name. -->
-                                                        <TextBlock Grid.Column="1" VerticalAlignment="Center">
-                                                            <Run Text="{Binding Label, Mode=OneWay}" /><Run Text="{Binding Badge, Mode=OneWay, StringFormat='{} {0}'}"
-                                                                 BaselineAlignment="Superscript"
-                                                                 FontSize="9"
-                                                                 Foreground="{DynamicResource TextMuted}" />
-                                                        </TextBlock>
+                                                        <!-- Name on the left, its ISO code aligned on the right. -->
+                                                        <TextBlock Grid.Column="1" Text="{Binding Label}" VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="2"
+                                                                   Text="{Binding Badge}"
+                                                                   FontSize="11"
+                                                                   Foreground="{DynamicResource TextMuted}"
+                                                                   VerticalAlignment="Center"
+                                                                   Margin="16,0,0,0" />
                                                     </Grid>
                                                 </Button>
                                             </DataTemplate>
