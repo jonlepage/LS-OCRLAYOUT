@@ -5,6 +5,8 @@ internal static partial class Loc
     private static Dictionary<string, string> Korean() => new()
     {
         ["pb.close"] = "닫기 (Esc)",
+        ["pb.tea"] = "차 한 잔 사 주세요",
+        ["pb.tea.tip"] = "앱 응원하기: Stripe를 통해 카드로 팁 보내기",
         ["pb.openChat"] = "아무것도 보내지 않고 ChatGPT 열기",
         ["pb.update.banner"] = "버전 {0} 사용 가능 · 클릭하여 설치",
         ["pb.update.banner.tip"] = "약 {0}MB를 내려받은 뒤 앱이 자동으로 다시 시작됩니다",

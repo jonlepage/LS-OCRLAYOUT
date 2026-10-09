@@ -5,6 +5,8 @@ internal static partial class Loc
     private static Dictionary<string, string> Vietnamese() => new()
     {
         ["pb.close"] = "Đóng (Esc)",
+        ["pb.tea"] = "Mời tôi một tách trà",
+        ["pb.tea.tip"] = "Ủng hộ ứng dụng: tiền tip bằng thẻ, qua Stripe",
         ["pb.openChat"] = "Mở ChatGPT mà không gửi gì",
         ["pb.update.banner"] = "Đã có phiên bản {0} · nhấp để cài đặt",
         ["pb.update.banner.tip"] = "Tải về khoảng {0} MB, sau đó ứng dụng tự khởi động lại",

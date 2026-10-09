@@ -317,6 +317,19 @@
         </Style>
 
         <!-- The title bar's "new version" pill. -->
+        <!-- The title bar's tip link: discreet until hovered. -->
+        <Style x:Key="QuietLink" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="8,3" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="Foreground" Value="{DynamicResource AccentSoft}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <Style x:Key="UpdatePill" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
             <Setter Property="Background" Value="{DynamicResource PillBg}" />
             <Setter Property="BorderBrush" Value="{DynamicResource PillBorder}" />
@@ -720,6 +733,16 @@
                                FontWeight="SemiBold"
                                VerticalAlignment="Center"
                                Margin="11,0,0,0" />
+                    <!-- Support the app: a tip through Stripe. Gives its place
+                         to the update pill when there is one. -->
+                    <Button x:Name="TeaLink"
+                            Grid.Column="2"
+                            Style="{StaticResource QuietLink}"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Content="{DynamicResource pb.tea}"
+                            ToolTip="{DynamicResource pb.tea.tip}"
+                            Click="TeaLink_Click" />
                     <!-- A newer version: one click downloads, installs and
                          restarts; the download's progress shows in it.
                          Filled by RefreshUpdateRow. -->

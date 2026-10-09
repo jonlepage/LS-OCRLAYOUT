@@ -49,6 +49,8 @@ public partial class PromptWindow : Window
     // Settings panel, "Generate an account": a throwaway address to sign up with.
     private const string TempMailUrl = "https://temp-mail.id";
     private const string ChangelogUrl = "https://github.com/jonlepage/LS-OCRLAYOUT/blob/main/CHANGELOG.md";
+    // "Buy me a tea": a Stripe payment link, the amount chosen by the payer.
+    private const string TeaUrl = "https://buy.stripe.com/aFaaEY3elgUa9Jp29x57W04";
 
     private readonly App _app = (App)System.Windows.Application.Current;
     private readonly ListCollectionView _view;
@@ -592,6 +594,11 @@ public partial class PromptWindow : Window
         try { Process.Start(new ProcessStartInfo(TempMailUrl) { UseShellExecute = true }); } catch { }
     }
 
+    private void TeaLink_Click(object sender, RoutedEventArgs e)
+    {
+        try { Process.Start(new ProcessStartInfo(TeaUrl) { UseShellExecute = true }); } catch { }
+    }
+
     private void Changelog_Click(object sender, RoutedEventArgs e)
     {
         SettingsPopup.IsOpen = false;
@@ -698,6 +705,7 @@ public partial class PromptWindow : Window
         // shown, not clickable, so it keeps its full color.
         var downloading = _app.UpdateStage == UpdateStage.Downloading;
         UpdateBanner.Visibility = available || downloading ? Visibility.Visible : Visibility.Collapsed;
+        TeaLink.Visibility = UpdateBanner.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
         UpdateBanner.IsHitTestVisible = available;
         if (available && _app.AvailableUpdate is { } update)
         {

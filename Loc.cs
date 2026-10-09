@@ -57,6 +57,8 @@ internal static partial class Loc
         ["en"] = new()
         {
             ["pb.close"] = "Close (Esc)",
+            ["pb.tea"] = "Buy me a tea",
+            ["pb.tea.tip"] = "Support the app: a tip by card, through Stripe",
             ["pb.openChat"] = "Open ChatGPT, without sending anything",
             ["pb.update.banner"] = "Version {0} available · click to install",
             ["pb.update.banner.tip"] = "Downloads about {0} MB, then the app restarts on its own",
@@ -217,6 +219,8 @@ internal static partial class Loc
         ["fr"] = new()
         {
             ["pb.close"] = "Fermer (Échap)",
+            ["pb.tea"] = "Paye-moi un thé",
+            ["pb.tea.tip"] = "Soutenir l'application : un pourboire par carte, via Stripe",
             ["pb.openChat"] = "Ouvrir ChatGPT, sans rien envoyer",
             ["pb.update.banner"] = "Version {0} disponible · clique pour installer",
             ["pb.update.banner.tip"] = "Télécharge environ {0} Mo, puis l'application redémarre d'elle-même",

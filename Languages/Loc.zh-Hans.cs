@@ -5,6 +5,8 @@ internal static partial class Loc
     private static Dictionary<string, string> ChineseSimplified() => new()
     {
         ["pb.close"] = "关闭 (Esc)",
+        ["pb.tea"] = "请我喝杯茶",
+        ["pb.tea.tip"] = "支持本应用：通过 Stripe 用银行卡打赏",
         ["pb.openChat"] = "打开 ChatGPT，不发送任何内容",
         ["pb.update.banner"] = "版本 {0} 可用 · 点击安装",
         ["pb.update.banner.tip"] = "下载约 {0} MB，然后应用会自动重启",

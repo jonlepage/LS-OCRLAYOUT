@@ -5,6 +5,8 @@ internal static partial class Loc
     private static Dictionary<string, string> German() => new()
     {
         ["pb.close"] = "Schließen (Esc)",
+        ["pb.tea"] = "Spendier mir einen Tee",
+        ["pb.tea.tip"] = "Die App unterstützen: ein Trinkgeld per Karte, über Stripe",
         ["pb.openChat"] = "ChatGPT öffnen, ohne etwas zu senden",
         ["pb.update.banner"] = "Version {0} verfügbar · zum Installieren klicken",
         ["pb.update.banner.tip"] = "Lädt etwa {0} MB herunter, danach startet die App von selbst neu",

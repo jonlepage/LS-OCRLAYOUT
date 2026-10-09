@@ -5,6 +5,8 @@ internal static partial class Loc
     private static Dictionary<string, string> Turkish() => new()
     {
         ["pb.close"] = "Kapat (Esc)",
+        ["pb.tea"] = "Bana bir çay ısmarla",
+        ["pb.tea.tip"] = "Uygulamayı destekle: Stripe üzerinden kartla bahşiş",
         ["pb.openChat"] = "Hiçbir şey göndermeden ChatGPT'yi aç",
         ["pb.update.banner"] = "{0} sürümü mevcut · yüklemek için tıkla",
         ["pb.update.banner.tip"] = "Yaklaşık {0} MB indirir, ardından uygulama kendiliğinden yeniden başlar",

@@ -2,15 +2,16 @@
 
 ## 1.6.0
 
-- **16 languages**: Deutsch, Español, Italiano, Português, Polski, Türkçe, Bahasa Indonesia, Tiếng Việt, Русский, Українська, 日本語, 한국어, 简体中文 and 繁體中文 join English and Français.
 - **Capture any part of the screen**: click the screenshot thumbnail.
 - **Use the image you just copied** instead of a new screenshot.
+- **16 languages**: Deutsch, Español, Italiano, Português, Polski, Türkçe, Bahasa Indonesia, Tiếng Việt, Русский, Українська, 日本語, 한국어, 简体中文 and 繁體中文 join English and Français.
 - **New themes**: Light, Night Dev and VS Code. ChatGPT follows.
 - **ChatGPT, desktop style**: square corners, smaller text, less wasted space.
 - **Add prompts from an AI agent** (Claude Code, Cursor…) with the built-in MCP server.
 - **Auto-send** set separately for text and for images.
 - One window at a time, and ChatGPT recovers on its own if it crashes.
 - Fixes: last prompt remembered, prompt and text on separate lines, no more duplicate app.
+- Like the app? **Buy me a tea**: the new link in the Prompt Builder's title bar.
 
 ## 1.5.2
 

@@ -5,6 +5,8 @@ internal static partial class Loc
     private static Dictionary<string, string> Japanese() => new()
     {
         ["pb.close"] = "閉じる (Esc)",
+        ["pb.tea"] = "お茶をおごる",
+        ["pb.tea.tip"] = "アプリを応援: Stripe からカードでチップを送れます",
         ["pb.openChat"] = "何も送信せずに ChatGPT を開く",
         ["pb.update.banner"] = "バージョン {0} が利用可能 · クリックしてインストール",
         ["pb.update.banner.tip"] = "約 {0} MB をダウンロードし、アプリが自動で再起動します",
