@@ -140,6 +140,9 @@ public partial class App
         }
     }
 
+    // The clipboard's current image was used (a region snip): not again.
+    internal void SpendClipboard() => _spentClipboardSequence = SelectionGrabber.ClipboardSequence;
+
     private async void CopyToClipboard(ScreenCapture capture)
     {
         await capture.CopyToClipboardAsync();

@@ -5,6 +5,7 @@
 - **MCP server** (⚙ > Agents): an AI agent (Claude Code, Cursor…) can list, add and edit your prompts. Off at every start; ticking it shows the line to add to your agent.
 - **Themes** (⚙ > Theme): **Light** (soft greys, easy on the eyes), **Night Dev** (dark, orange and fuchsia) and **VS Code** (the editor's dark colors). ChatGPT follows. Dark stays the default.
 - Language and theme are submenus in ⚙.
+- **Capture a region**: click the screenshot thumbnail, pick a region with Windows' snipping tool; it replaces the screenshot and is attached.
 - **Clipboard image first** (⚙): an image in the clipboard (Win+Shift+S…) is used instead of a new screenshot, and attached.
 - **Automatic send** split in two: text alone, and with an image.
 - **What's new** link in ⚙.

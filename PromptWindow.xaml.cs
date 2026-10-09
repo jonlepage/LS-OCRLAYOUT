@@ -115,7 +115,7 @@ public partial class PromptWindow : Window
 
     // ── Called by App on every Ctrl+Alt+G ──
 
-    internal async void Load(string text, ScreenCapture capture)
+    internal void Load(string text, ScreenCapture capture)
     {
         // Window already open and nothing selected this time: keep what was
         // being written rather than wiping it.
@@ -129,11 +129,17 @@ public partial class PromptWindow : Window
             AttachCapture.IsChecked = true;
         else if (_capture is { FromClipboard: true })
             AttachCapture.IsChecked = _app.PromptAttachScreenshot;
+        ShowCapture(capture, capture.FromClipboard ? "pb.capture.clipboard" : "pb.capture");
+    }
+
+    // The footer's thumbnail and checkbox for this capture.
+    private async void ShowCapture(ScreenCapture capture, string label)
+    {
         _capture = capture;
-        AttachCapture.SetResourceReference(ContentProperty, capture.FromClipboard ? "pb.capture.clipboard" : "pb.capture");
+        AttachCapture.SetResourceReference(ContentProperty, label);
         CapturePanel.Visibility = Visibility.Visible;
         CaptureThumb.Background = null;
-        CaptureThumb.ToolTip = null;
+        CaptureThumb.ToolTip = ThumbTip(null);
         UpdateComposerState();
 
         // Downscaled off the UI thread; lands a few tens of ms after the
@@ -151,7 +157,54 @@ public partial class PromptWindow : Window
         var thumbnail = new ImageBrush(previews.Thumbnail) { Stretch = Stretch.UniformToFill };
         thumbnail.Freeze();
         CaptureThumb.Background = thumbnail;
-        CaptureThumb.ToolTip = new Image { Source = previews.Preview, Width = 560, Stretch = Stretch.Uniform };
+        CaptureThumb.ToolTip = ThumbTip(previews.Preview);
+    }
+
+    // The preview, and what a click does.
+    private static StackPanel ThumbTip(ImageSource? preview)
+    {
+        var tip = new StackPanel();
+        if (preview is not null)
+            tip.Children.Add(new Image { Source = preview, Width = 560, Stretch = Stretch.Uniform, Margin = new Thickness(0, 0, 0, 6) });
+        var hint = new TextBlock();
+        hint.SetResourceReference(TextBlock.TextProperty, "pb.capture.snipTip");
+        tip.Children.Add(hint);
+        return tip;
+    }
+
+    // ── Region capture: a click on the thumbnail ──
+
+    // How long DWM takes to fade this window out: the overlay freezes the
+    // screen as it opens, and this window must not be in it.
+    private const int HideBeforeSnipMs = 200;
+    private bool _snipping;
+
+    // Windows' snipping overlay (RegionSnip) for a region of the screen. This
+    // window steps aside and comes back with the region as its capture —
+    // attached: taking it shows the intent. Canceled: back as it was.
+    private async void CaptureThumb_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_snipping) return;
+        _snipping = true;
+        try
+        {
+            Hide();
+            await Task.Delay(HideBeforeSnipMs);
+            var taken = await RegionSnip.RunAsync(abandoned: () => IsVisible);
+            // Brought back meanwhile (Ctrl+Alt+G): that capture wins.
+            if (IsVisible) return;
+            if (taken && ScreenCapture.FromClipboardImage() is { } region)
+            {
+                _app.SpendClipboard();
+                AttachCapture.IsChecked = true;
+                ShowCapture(region, "pb.capture");
+            }
+        }
+        finally
+        {
+            _snipping = false;
+            if (!IsVisible) Present();
+        }
     }
 
     // Also the ChatGPT window's "Prompt Builder" button: the window comes
@@ -166,7 +219,7 @@ public partial class PromptWindow : Window
             Show();
         }
         if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
-        Activate();
+        BringToFront();
 
         // With text: start in the search box — type to filter, arrows to
         // pick, Enter to send. Without: straight into the text box.
@@ -827,9 +880,6 @@ public partial class PromptWindow : Window
         UpdateComposerState();
     }
 
-    private void CaptureThumb_MouseLeftButtonUp(object sender, MouseButtonEventArgs e) =>
-        AttachCapture.IsChecked = AttachCapture.IsChecked != true;
-
     private void AttachCapture_Changed(object sender, RoutedEventArgs e) => UpdateComposerState();
 
     private void Send_Click(object sender, RoutedEventArgs e) => Send();
@@ -882,6 +932,26 @@ public partial class PromptWindow : Window
         DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref preference, sizeof(int));
     }
 
+    // Activate() alone is refused when another program has the foreground —
+    // after the snipping overlay, or a click in ChatGPT's page: the taskbar
+    // button flashes and the window stays behind. Windows lifts that lock
+    // while Alt is held, the usual way out: when a first try is refused,
+    // hold Alt for the call. The Alt key-up then lands on this window, which
+    // has no menu for it to open.
+    private void BringToFront()
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        Topmost = true;
+        Topmost = false;
+        if (!SetForegroundWindow(hwnd) || GetForegroundWindow() != hwnd)
+        {
+            keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
+            SetForegroundWindow(hwnd);
+            keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+        }
+        Activate();
+    }
+
     // Shown on the monitor the user is working on, not where it was last
     // hidden. Physical pixels end to end, so mixed-DPI setups stay right.
     private void CenterOnCursorScreen()
@@ -926,6 +996,19 @@ public partial class PromptWindow : Window
 
     [LibraryImport("dwmapi.dll")]
     private static partial int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+
+    [LibraryImport("user32.dll")]
+    private static partial IntPtr GetForegroundWindow();
+
+    private const byte VK_MENU = 0x12;
+    private const uint KEYEVENTF_KEYUP = 0x0002;
+
+    [LibraryImport("user32.dll")]
+    private static partial void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool SetForegroundWindow(IntPtr hWnd);
 }
 
 // "#RRGGBB" → brush, for a prompt's title color, as the current theme shows
