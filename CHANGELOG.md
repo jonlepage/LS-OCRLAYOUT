@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.1
+
+- Fixed: clicking **Send** a second time sometimes did nothing — the window closed and ChatGPT never opened.
+- Fixed: text in ChatGPT could not be selected for a few seconds after sending.
+- The ChatGPT window no longer opens hidden behind your other windows.
+
 ## 1.6.0
 
 - **Capture any part of the screen**: click the screenshot thumbnail.
