@@ -19,6 +19,7 @@ public partial class App
     private const int PROMPT_HOTKEY_ID = 9001;
     private const uint VK_G = 0x47;
     private const string PromptsFileName = "prompts.json";
+    private const string ChatLogFileName = "chat.log";
     // WebView2 profile (cookies, the refused cookie banner). Next to the exe,
     // like every other file this app writes.
     private const string WebViewFolderName = "ScreenSearchOverlay.WebView2";
@@ -53,6 +54,7 @@ public partial class App
 
     private void SetupPromptBuilder(IntPtr hotkeyHost)
     {
+        ChatLog.Start(GetFilePath(ChatLogFileName));
         Prompts = PromptLibrary.Load(GetFilePath(PromptsFileName), Loc.Current);
         // Untouched starter prompts speak the UI language, now and after a change.
         if (StarterPrompts.Localize(Prompts, Loc.Current)) SavePromptsInBackground();

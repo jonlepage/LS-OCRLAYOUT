@@ -222,7 +222,7 @@ public partial class PromptWindow : Window
             Show();
         }
         if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
-        BringToFront();
+        WindowActivation.BringToFront(this);
 
         // With text: start in the search box — type to filter, arrows to
         // pick, Enter to send. Without: straight into the text box.
@@ -957,26 +957,6 @@ public partial class PromptWindow : Window
         DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref preference, sizeof(int));
     }
 
-    // Activate() alone is refused when another program has the foreground —
-    // after the snipping overlay, or a click in ChatGPT's page: the taskbar
-    // button flashes and the window stays behind. Windows lifts that lock
-    // while Alt is held, the usual way out: when a first try is refused,
-    // hold Alt for the call. The Alt key-up then lands on this window, which
-    // has no menu for it to open.
-    private void BringToFront()
-    {
-        var hwnd = new WindowInteropHelper(this).Handle;
-        Topmost = true;
-        Topmost = false;
-        if (!SetForegroundWindow(hwnd) || GetForegroundWindow() != hwnd)
-        {
-            keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
-            SetForegroundWindow(hwnd);
-            keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-        }
-        Activate();
-    }
-
     // Shown on the monitor the user is working on, not where it was last
     // hidden. Physical pixels end to end, so mixed-DPI setups stay right.
     private void CenterOnCursorScreen()
@@ -1021,19 +1001,6 @@ public partial class PromptWindow : Window
 
     [LibraryImport("dwmapi.dll")]
     private static partial int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
-
-    [LibraryImport("user32.dll")]
-    private static partial IntPtr GetForegroundWindow();
-
-    private const byte VK_MENU = 0x12;
-    private const uint KEYEVENTF_KEYUP = 0x0002;
-
-    [LibraryImport("user32.dll")]
-    private static partial void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
-
-    [LibraryImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool SetForegroundWindow(IntPtr hWnd);
 }
 
 // "#RRGGBB" → brush, for a prompt's title color, as the current theme shows

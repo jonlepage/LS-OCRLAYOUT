@@ -29,6 +29,10 @@ public partial class ChatWindow : Window
     // shorter deadlines and normally reports long before.
     private const int SendResultTimeoutMs =
         ChatGptPage.PageBootTimeoutMs + ChatGptPage.ImageUploadTimeoutMs * 2 + ChatGptPage.SendTimeoutMs + 10_000;
+    // ExecuteScriptAsync has no deadline of its own (see ExecuteAsync). The
+    // send script gets more: it carries the screenshot as a ~1 Mo literal.
+    private const int ScriptTimeoutMs = 5_000;
+    private const int SendScriptTimeoutMs = 15_000;
 
     // A hidden page must not be slowed down: its load runs while the
     // window is hidden (the preheat), and the send script's waits are timers.
@@ -51,7 +55,10 @@ public partial class ChatWindow : Window
     private bool _pristine;
     // The mode the page was last loaded in; null until it was loaded at all.
     private bool? _preparedTemporary;
-    private bool _sending;
+    // The send in progress (its request id), null when none, and the step it
+    // has reached — logged when a newer send takes over from it.
+    private string? _sendId;
+    private string _sendStep = "";
     private bool _closingForGood;
     // Shown once, off-screen, so the WebView could initialize (see RealizeOffScreen).
     private bool _realized;
@@ -89,23 +96,26 @@ public partial class ChatWindow : Window
     // when the temporary chat setting changed since the page was loaded.
     internal void Preheat()
     {
-        if (_sending || _preheat is { IsCompleted: false }) return;
+        if (_sendId is not null || _preheat is { IsCompleted: false }) return;
         if (_pristine && !IsVisible && _preparedTemporary == _temporaryChat()) return;
         _preheat = PreheatAsync();
     }
 
     private async Task PreheatAsync()
     {
+        var watch = Stopwatch.StartNew();
         try
         {
             RealizeOffScreen();
             await EnsureInitializedAsync();
             _pristine = false;
             _pristine = await PrepareConversationAsync();
+            ChatLog.Write($"preheat: {(_pristine ? "ready" : "no composer")} in {watch.ElapsedMilliseconds} ms");
         }
-        catch
+        catch (Exception ex)
         {
             _pristine = false;
+            ChatLog.Write($"preheat failed: {ex.GetType().Name}: {ex.Message}");
         }
     }
 
@@ -155,16 +165,21 @@ public partial class ChatWindow : Window
     {
         var temporary = _temporaryChat();
         _preparedTemporary = temporary;
-        await NewDocumentAsync(() =>
+        ChatLog.Write(temporary ? "new conversation (temporary)" : "new conversation");
+        var loading = await NewDocumentAsync(() =>
         {
             WebView.CoreWebView2.Navigate(ChatGptPage.NewConversationUrl(temporary));
             return Task.FromResult(true);
         }, NavigationTimeoutMs);
+        if (!loading) ChatLog.Write($"  no new document within {NavigationTimeoutMs} ms");
         if (!await WaitForComposerAsync()) return false;
 
         // Refusing posts a form: the page reloads, wait for the new composer.
         if (await NewDocumentAsync(() => ExecuteBoolAsync(ChatGptPage.RejectCookiesScript), ConsentReloadTimeoutMs))
+        {
+            ChatLog.Write("  cookie banner refused");
             return await WaitForComposerAsync();
+        }
         return true;
     }
 
@@ -173,11 +188,30 @@ public partial class ChatWindow : Window
     // image: the screenshot PNG, possibly still encoding — awaited only once
     // the page is ready, so encoding overlaps the page load. submit false:
     // the message is left in the composer, the user presses Enter.
+    //
+    // A send still running never swallows a new one. Returning early, as this
+    // window once did, left nothing on screen at all — the Prompt Builder
+    // gone, no ChatGPT — whenever the previous send had not finished: a page
+    // that never answered, a report that never came. The previous send is
+    // dropped instead: its report is no longer waited for, its script stops
+    // at its next step, and this one starts over from a new conversation.
     internal async Task SendAsync(string message, Task<byte[]?>? image, bool submit)
     {
-        if (_sending) return;
-        _sending = true;
+        if (_sendId is { } previous)
+        {
+            ChatLog.Write($"send {Short(previous)}: dropped at \"{_sendStep}\", a newer send takes over");
+            if (_pending.Remove(previous, out var stale)) stale.TrySetResult(Dropped);
+        }
+        var id = Guid.NewGuid().ToString("N");
+        _sendId = id;
+        // Every await may resume after a newer send took over: this one then
+        // leaves without a word, the window and its status are the newer one's.
+        bool Superseded() => _sendId != id;
+
         var watch = Stopwatch.StartNew();
+        ChatLog.Write($"send {Short(id)}: {message.Length} chars, {(image is null ? "no image" : "image")}, " +
+            $"{(submit ? "auto-send" : "no auto-send")}, page {(_pristine ? "blank" : "used")}, " +
+            $"preheat {(_preheat is null ? "none" : _preheat.IsCompleted ? "done" : "running")}");
         try
         {
             ShowStatus(StatusKind.Working, Loc.T("chat.opening"));
@@ -185,36 +219,60 @@ public partial class ChatWindow : Window
             // waiting for a visible host, this is what lets it finish.
             Show();
             if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
-            Activate();
+            WindowActivation.BringToFront(this);
 
+            _sendStep = "preheat";
             if (_preheat is { } preheat) await preheat;
+            if (Superseded()) return;
             _preheat = null;
+            _sendStep = "initialization";
             await EnsureInitializedAsync();
+            if (Superseded()) return;
 
-            if ((!_pristine || _preparedTemporary != _temporaryChat()) && !await PrepareConversationAsync())
+            if (!_pristine || _preparedTemporary != _temporaryChat())
             {
-                ShowStatus(StatusKind.Error, Loc.T("chat.noComposer"));
-                return;
+                _sendStep = "new conversation";
+                var ready = await PrepareConversationAsync();
+                if (Superseded()) return;
+                if (!ready)
+                {
+                    ChatLog.Write($"send {Short(id)}: no composer");
+                    ShowStatus(StatusKind.Error, Loc.T("chat.noComposer"));
+                    return;
+                }
             }
             _pristine = false;
 
+            _sendStep = "screenshot";
             var png = image is null ? null : await image;
+            if (Superseded()) return;
             ShowStatus(StatusKind.Working, Loc.T(png is null ? "chat.sendingText" : "chat.sendingBoth"));
             WebView.Focus();
 
-            var id = Guid.NewGuid().ToString("N");
             var result = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
             _pending[id] = result;
             try
             {
-                await WebView.CoreWebView2.ExecuteScriptAsync(
-                    ChatGptPage.SendScript(id, message, png is null ? null : Convert.ToBase64String(png), submit));
-                var finished = await Task.WhenAny(result.Task, Task.Delay(SendResultTimeoutMs));
-                if (finished != result.Task)
+                _sendStep = "send script";
+                var started = await ExecuteAsync(
+                    ChatGptPage.SendScript(id, message, png is null ? null : Convert.ToBase64String(png), submit),
+                    SendScriptTimeoutMs);
+                if (Superseded()) return;
+                if (started is null)
                 {
                     ShowStatus(StatusKind.Error, Loc.T("chat.timeout"));
                     return;
                 }
+                _sendStep = "page's report";
+                var finished = await Task.WhenAny(result.Task, Task.Delay(SendResultTimeoutMs));
+                if (Superseded()) return;
+                if (finished != result.Task)
+                {
+                    ChatLog.Write($"send {Short(id)}: no report from the page in {SendResultTimeoutMs} ms");
+                    ShowStatus(StatusKind.Error, Loc.T("chat.timeout"));
+                    return;
+                }
+                ChatLog.Write($"send {Short(id)}: {result.Task.Result.GetRawText()} in {watch.ElapsedMilliseconds} ms");
                 Report(result.Task.Result, watch.Elapsed, submit);
             }
             finally
@@ -225,18 +283,22 @@ public partial class ChatWindow : Window
         catch (WebView2RuntimeNotFoundException)
         {
             _initialization = null;
-            ShowStatus(StatusKind.Error, Loc.T("chat.noRuntime"));
+            ChatLog.Write($"send {Short(id)}: no WebView2 runtime");
+            if (!Superseded()) ShowStatus(StatusKind.Error, Loc.T("chat.noRuntime"));
         }
         catch (Exception ex)
         {
             if (_initialization is { IsFaulted: true }) _initialization = null;
-            ShowStatus(StatusKind.Error, Loc.T("chat.failed", ex.Message));
+            ChatLog.Write($"send {Short(id)}: {ex.GetType().Name}: {ex.Message}");
+            if (!Superseded()) ShowStatus(StatusKind.Error, Loc.T("chat.failed", ex.Message));
         }
         finally
         {
-            _sending = false;
+            if (!Superseded()) _sendId = null;
         }
     }
+
+    private static string Short(string id) => id[..6];
 
     // ── Open, nothing sent ──
 
@@ -247,8 +309,8 @@ public partial class ChatWindow : Window
     {
         Show();
         if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
-        Activate();
-        if (_sending) return;
+        WindowActivation.BringToFront(this);
+        if (_sendId is not null) return;
 
         try
         {
@@ -300,6 +362,10 @@ public partial class ChatWindow : Window
             ShowStatus(StatusKind.Success, Loc.T("chat.sent", took));
         else if (ok)
             ShowStatus(StatusKind.Ready, Loc.T("chat.inserted", took));
+        // The user clicked or typed in the page before it took the message:
+        // theirs now, nothing to report.
+        else if (at == "user")
+            StatusBar.Visibility = Visibility.Collapsed;
         else
             ShowStatus(StatusKind.Error, at switch
             {
@@ -387,16 +453,32 @@ public partial class ChatWindow : Window
         {
             try
             {
-                if (await ExecuteBoolAsync(ChatGptPage.ReadyProbeScript)) return true;
+                if (await ExecuteBoolAsync(ChatGptPage.ReadyProbeScript))
+                {
+                    ChatLog.Write($"  composer after {watch.ElapsedMilliseconds} ms");
+                    return true;
+                }
             }
             catch { /* document swapped mid-call: try again */ }
             await Task.Delay(ComposerPollMs);
         }
+        ChatLog.Write($"  no composer after {PageReadyTimeoutMs} ms");
         return false;
     }
 
     private async Task<bool> ExecuteBoolAsync(string script) =>
-        await WebView.CoreWebView2.ExecuteScriptAsync(script) == "true";
+        await ExecuteAsync(script, ScriptTimeoutMs) == "true";
+
+    // ExecuteScriptAsync has no deadline of its own: a page that never
+    // answers (a hung renderer, a dialog open in a hidden window) held a send
+    // forever — and, through it, every send after. null: no answer in time.
+    private async Task<string?> ExecuteAsync(string script, int timeoutMs)
+    {
+        var run = WebView.CoreWebView2.ExecuteScriptAsync(script);
+        if (await Task.WhenAny(run, Task.Delay(timeoutMs)) == run) return await run;
+        ChatLog.Write($"  script unanswered after {timeoutMs} ms");
+        return null;
+    }
 
     private void OnWebMessage(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
@@ -422,6 +504,7 @@ public partial class ChatWindow : Window
     private async void OnNavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
     {
         if (_pending.Count == 0) return;
+        ChatLog.Write("  page navigated while its report was awaited");
         var waiting = _pending.Values.ToList();
         await Task.Delay(1500);
         foreach (var result in waiting)
@@ -434,6 +517,9 @@ public partial class ChatWindow : Window
     private static readonly JsonElement Crashed =
         JsonDocument.Parse("""{"ok":false,"at":"crashed"}""").RootElement.Clone();
 
+    private static readonly JsonElement Dropped =
+        JsonDocument.Parse("""{"ok":false,"at":"dropped"}""").RootElement.Clone();
+
     // ── Recovery ──
 
     // WebView2's processes can die under the app: killed by a cleanup script
@@ -444,6 +530,7 @@ public partial class ChatWindow : Window
     // conversation — no restart of the app needed.
     private void OnProcessFailed(object? sender, CoreWebView2ProcessFailedEventArgs e)
     {
+        ChatLog.Write($"WebView2 process failed: {e.ProcessFailedKind}");
         foreach (var waiting in _pending.Values.ToList())
             waiting.TrySetResult(Crashed);
         _pristine = false;
@@ -457,7 +544,7 @@ public partial class ChatWindow : Window
             case CoreWebView2ProcessFailedKind.RenderProcessExited:
             case CoreWebView2ProcessFailedKind.RenderProcessUnresponsive:
             case CoreWebView2ProcessFailedKind.FrameRenderProcessExited:
-                if (IsVisible && !_sending) Preheat();
+                if (IsVisible && _sendId is null) Preheat();
                 break;
         }
     }
@@ -482,7 +569,7 @@ public partial class ChatWindow : Window
         _themeScriptId = null;
         // Like the first one: a control only starts in a window shown once.
         _realized = false;
-        if (IsVisible && !_sending) Preheat();
+        if (IsVisible && _sendId is null) Preheat();
     }
 
     // ── Status strip ──
@@ -521,6 +608,7 @@ public partial class ChatWindow : Window
     internal void StepAside()
     {
         if (!IsVisible) return;
+        ChatLog.Write(_sendId is null ? "stepped aside" : $"stepped aside, send {Short(_sendId)} still at \"{_sendStep}\"");
         _saveBounds(WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds);
         Hide();
     }

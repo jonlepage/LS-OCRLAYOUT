@@ -98,11 +98,33 @@ internal static class ChatGptPage
     // takes, which the page's editor framework hears — then a synthetic paste,
     // then a direct write (enough for a plain textarea). Same ladder as
     // LSDE2's typeAndSend; text on several lines goes paste first (see type).
+    //
+    // Typing again selects the whole composer, which drops any selection the
+    // user is making in the page: once the user clicks or types in it, the
+    // script stops typing and only waits. A newer send (ChatWindow.SendAsync)
+    // makes this one stop at its next step, without a word.
     internal static string SendScript(string requestId, string text, string? pngBase64, bool submit) => $$"""
         (async () => {
           const id = {{Literal(requestId)}};
           const sendSelector = {{Literal(SendSelector)}};
-          const post = (result) => window.chrome.webview.postMessage(Object.assign({ id: id }, result));
+          const promptSelector = {{Literal(PromptSelector)}};
+          window.__lsSendId = id;
+          const superseded = () => window.__lsSendId !== id;
+          let userActed = false;
+          let retypes = 0;
+          // Modifiers alone are not the user acting: the window's own Alt
+          // (WindowActivation) and the hotkey's Ctrl+Alt reach the page too.
+          const onUser = (event) => {
+            if (event.isTrusted && !["Alt", "Control", "Shift", "Meta"].includes(event.key)) userActed = true;
+          };
+          document.addEventListener("pointerdown", onUser, true);
+          document.addEventListener("keydown", onUser, true);
+          const post = (result) => {
+            document.removeEventListener("pointerdown", onUser, true);
+            document.removeEventListener("keydown", onUser, true);
+            if (superseded()) return;
+            window.chrome.webview.postMessage(Object.assign({ id: id, retypes: retypes, userActed: userActed }, result));
+          };
           const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
           const waitFor = (selector, ms) => new Promise((resolve) => {
             const now = document.querySelector(selector);
@@ -121,9 +143,18 @@ internal static class ChatGptPage
             timer = setTimeout(() => { observer.disconnect(); resolve(document.querySelector(selector)); }, ms);
           });
           try {
-            const field = document.querySelector({{Literal(PromptSelector)}});
+            let field = document.querySelector(promptSelector);
             if (!field) return post({ ok: false, at: "prompt" });
-            const isTextarea = typeof field.value === "string";
+            let isTextarea = typeof field.value === "string";
+            // The composer a just-loaded page shows first can be replaced
+            // once its scripts start: always work on the one in the page now.
+            const current = () => {
+              const now = document.querySelector(promptSelector);
+              if (now && now !== field) {
+                field = now;
+                isTextarea = typeof field.value === "string";
+              }
+            };
             const selectAll = () => {
               field.focus();
               if (isTextarea) { field.select(); return; }
@@ -161,6 +192,8 @@ internal static class ChatGptPage
               let handled = paste();
               for (const until = Date.now() + {{PageBootTimeoutMs}}; !handled && Date.now() < until;) {
                 await sleep(100);
+                if (superseded()) return post({});
+                current();
                 handled = paste();
               }
               if (!handled) {
@@ -196,9 +229,10 @@ internal static class ChatGptPage
             // The composer's editor drops the line breaks of inserted text
             // ("prompt:text" on one line) but keeps those of a paste: text on
             // several lines is pasted first. A plain textarea keeps them either way.
-            const multiline = !isTextarea && text.includes("\n");
             const type = () => {
+              current();
               selectAll();
+              const multiline = !isTextarea && text.includes("\n");
               let typed = multiline ? paste() || insert() : insert() || paste();
               if (!typed) {
                 if (isTextarea) field.value = text;
@@ -214,15 +248,24 @@ internal static class ChatGptPage
             // page took the message, and Enter will send it.
             let button = await waitFor(sendSelector, 500);
             for (const until = Date.now() + {{SendTimeoutMs}}; !button && Date.now() < until;) {
-              if (text.length > 0) type();
+              if (superseded()) return post({});
+              if (text.length > 0 && !userActed) {
+                retypes++;
+                type();
+              }
               button = await waitFor(sendSelector, 500);
             }
-            if (!button) return post({ ok: false, at: "send", imageAttached: imageAttached, pastes: pastes });
+            if (superseded()) return post({});
+            // Not a failure when the user took over: the message is theirs now.
+            if (!button) return post({ ok: false, at: userActed ? "user" : "send", imageAttached: imageAttached, pastes: pastes });
+            // Sent by the user meanwhile (Enter): the button is ChatGPT's Stop
+            // now, and clicking it would cut the answer.
+            const stop = button.matches('[data-testid="stop-button"]');
             // Reported BEFORE the click: if sending navigates the page, this
             // script dies with the document and could never report after.
             post({ ok: true, at: "", imageAttached: imageAttached, pastes: pastes });
-            if ({{(submit ? "true" : "false")}}) button.click();
-            else field.focus();
+            if ({{(submit ? "true" : "false")}}) { if (!stop) button.click(); }
+            else if (!userActed) field.focus();
           } catch (error) {
             post({ ok: false, at: "script", detail: String(error) });
           }
