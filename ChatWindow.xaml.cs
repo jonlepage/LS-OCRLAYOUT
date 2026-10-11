@@ -40,6 +40,12 @@ public partial class ChatWindow : Window
     private const string BrowserArguments =
         "--disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows";
 
+    // Development only: LS_DEVTOOLS_PORT=9333 opens the page to the DevTools
+    // protocol on that port, so the live composer can be read from outside
+    // (when a ChatGPT redesign breaks the selectors). Unset in production.
+    internal static string? DevToolsPort =>
+        Environment.GetEnvironmentVariable("LS_DEVTOOLS_PORT") is { Length: > 0 } port ? port : null;
+
     private readonly string _userDataFolder;
     private readonly Action<Rect> _saveBounds;
     private readonly Action _backToPromptBuilder;
@@ -383,7 +389,8 @@ public partial class ChatWindow : Window
 
     private async Task InitializeAsync()
     {
-        var options = new CoreWebView2EnvironmentOptions { AdditionalBrowserArguments = BrowserArguments };
+        var arguments = DevToolsPort is { } port ? $"{BrowserArguments} --remote-debugging-port={port}" : BrowserArguments;
+        var options = new CoreWebView2EnvironmentOptions { AdditionalBrowserArguments = arguments };
         var environment = await CoreWebView2Environment.CreateAsync(null, _userDataFolder, options);
         await WebView.EnsureCoreWebView2Async(environment);
 

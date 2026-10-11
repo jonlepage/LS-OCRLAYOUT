@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.2
+
+- Fixed: signed in to a ChatGPT account, a screenshot sent with text never left — the text took half a minute to appear and nothing was sent.
+- Fixed: signed in to a ChatGPT account, messages were no longer sent automatically and an error showed, even though the message was written.
+
 ## 1.6.1
 
 - Fixed: clicking **Send** a second time sometimes did nothing — the window closed and ChatGPT never opened.

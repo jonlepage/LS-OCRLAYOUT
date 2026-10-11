@@ -79,6 +79,8 @@ public partial class App
         {
             _promptWindow ??= new PromptWindow();
             new WindowInteropHelper(_promptWindow).EnsureHandle();
+            // Development: the page is up for the DevTools before any Ctrl+Alt+G.
+            if (ChatWindow.DevToolsPort is not null) ChatWindowInstance().Preheat();
         });
     }
 

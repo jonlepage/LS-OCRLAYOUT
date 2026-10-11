@@ -8,7 +8,8 @@ namespace ScreenSearchOverlay;
 // DevTools to re-read the page.
 //
 // Selectors come from LSDE2's webviewFallbackServices.const.ts and were
-// re-read in the live page on 2026-10-04 (logged out). Each one lists several
+// re-read in the live page on 2026-10-04 (logged out) and 2026-10-11 (logged
+// in, through LS_DEVTOOLS_PORT — see ChatWindow.DevToolsPort). Each one lists several
 // candidates, most precise first: querySelector takes the first match, which
 // lets the recipe survive a redesign rolled out to only part of the users.
 //
@@ -33,11 +34,19 @@ internal static class ChatGptPage
 
     // ':not([aria-disabled="true"])' matters: the 2026 composer keeps its
     // button in the DOM and switches it off with aria-disabled, not with the
-    // native attribute. Clicking it then sends nothing.
+    // native attribute. Clicking it then sends nothing. The October 2026
+    // composer (seen logged in) dropped every marker on its button: only its
+    // form still says what it is — never a bare "form button[type=submit]",
+    // the cookie banner is a form with a submit button too.
     private const string SendSelector =
         "button[data-testid=\"send-button\"]:not([disabled]), " +
         "button#composer-submit-button:not([disabled]), " +
-        "form button[data-composer-submit]:not([disabled]):not([aria-disabled=\"true\"])";
+        "form button[data-composer-submit]:not([disabled]):not([aria-disabled=\"true\"]), " +
+        "form[data-chatgpt-composer] button[type=\"submit\"]:not([disabled]):not([aria-disabled=\"true\"])";
+
+    // The progress ring an attachment shows while it uploads.
+    private const string UploadingSelector =
+        "[data-composer-attachments] [role=\"progressbar\"]";
 
     // The cookie banner, dismissed by REFUSING non-essential cookies — never
     // by accepting them on the user's behalf. Designated by the form's hidden
@@ -89,7 +98,10 @@ internal static class ChatGptPage
     // composer, because its upload switches the send button off and an image
     // alone switches it back on when the upload is done. That is the only
     // reliable "upload finished" signal; with text already typed the button
-    // would stay on throughout.
+    // would stay on throughout. The October 2026 composer no longer does it:
+    // its button comes on the instant the image is pasted, and a progress
+    // ring on the thumbnail runs until the upload is done (measured: 9 s for
+    // 5 Mo). Both are waited for — the button, then the ring gone.
     //
     // Every wait is a MutationObserver: it reacts to the very DOM change (the
     // button losing aria-disabled) instead of discovering it at the next poll.
@@ -126,12 +138,13 @@ internal static class ChatGptPage
             window.chrome.webview.postMessage(Object.assign({ id: id, retypes: retypes, userActed: userActed }, result));
           };
           const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
-          const waitFor = (selector, ms) => new Promise((resolve) => {
-            const now = document.querySelector(selector);
+          // Resolves with test()'s first truthy value, or its last one at the deadline.
+          const waitUntil = (test, ms) => new Promise((resolve) => {
+            const now = test();
             if (now) return resolve(now);
             let timer = 0;
             const observer = new MutationObserver(() => {
-              const found = document.querySelector(selector);
+              const found = test();
               if (!found) return;
               clearTimeout(timer);
               observer.disconnect();
@@ -140,8 +153,9 @@ internal static class ChatGptPage
             observer.observe(document.documentElement, {
               subtree: true, childList: true, attributes: true, attributeFilter: ["disabled", "aria-disabled"],
             });
-            timer = setTimeout(() => { observer.disconnect(); resolve(document.querySelector(selector)); }, ms);
+            timer = setTimeout(() => { observer.disconnect(); resolve(test()); }, ms);
           });
+          const waitFor = (selector, ms) => waitUntil(() => document.querySelector(selector), ms);
           try {
             let field = document.querySelector(promptSelector);
             if (!field) return post({ ok: false, at: "prompt" });
@@ -209,6 +223,10 @@ internal static class ChatGptPage
               if (ready) {
                 await sleep(120);
                 ready = await waitFor(sendSelector, {{ImageUploadTimeoutMs}});
+              }
+              if (ready) {
+                ready = await waitUntil(() => !document.querySelector({{Literal(UploadingSelector)}}), {{ImageUploadTimeoutMs}})
+                  ? ready : null;
               }
               imageAttached = ready !== null;
             }
