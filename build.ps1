@@ -4,6 +4,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+# Get-AuthenticodeSignature (release notes): see sign.ps1.
+Import-Module "$PSHOME\Modules\Microsoft.PowerShell.Security"
 $root = $PSScriptRoot
 $csproj = Join-Path $root "ScreenSearchOverlay.csproj"
 
@@ -23,15 +25,15 @@ Write-Host ""
 # ── Step 1: Kill running instance ──
 $proc = Get-Process -Name "ScreenSearchOverlay" -ErrorAction SilentlyContinue
 if ($proc) {
-    Write-Host "[1/4] Killing running instance..." -ForegroundColor Yellow
+    Write-Host "[1/5] Killing running instance..." -ForegroundColor Yellow
     $proc | Stop-Process -Force
     Start-Sleep -Milliseconds 500
 } else {
-    Write-Host "[1/4] No running instance" -ForegroundColor DarkGray
+    Write-Host "[1/5] No running instance" -ForegroundColor DarkGray
 }
 
 # ── Step 2: Build ──
-Write-Host "[2/4] Building Release..." -ForegroundColor Yellow
+Write-Host "[2/5] Building Release..." -ForegroundColor Yellow
 dotnet publish $csproj -c Release -r win-x64 --self-contained true `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
@@ -39,15 +41,27 @@ dotnet publish $csproj -c Release -r win-x64 --self-contained true `
 if ($LASTEXITCODE -ne 0) { throw "Build failed" }
 
 # ── Step 3: Copy to dist ──
-Write-Host "[3/4] Copying to dist/" -ForegroundColor Yellow
+Write-Host "[3/5] Copying to dist/" -ForegroundColor Yellow
 if (!(Test-Path $distDir)) { New-Item -ItemType Directory -Path $distDir | Out-Null }
 Copy-Item (Join-Path $publishDir $exeName) (Join-Path $distDir $exeName) -Force
 $size = [math]::Round((Get-Item (Join-Path $distDir $exeName)).Length / 1MB, 1)
 Write-Host "      dist/$exeName ($size MB)" -ForegroundColor Green
 
-# ── Step 4: Release or Run ──
+# ── Step 4: Sign (sign.ps1; alone: npm run sign) ──
+# Every build is signed when .env is here. A release must be, and is
+# timestamped; local builds skip the timestamp server and work offline.
+$distExe = Join-Path $distDir $exeName
+if ($Release -or (Test-Path (Join-Path $root ".env"))) {
+    Write-Host "[4/5] Signing..." -ForegroundColor Yellow
+    & (Join-Path $root "sign.ps1") -File $distExe -NoTimestamp:(-not $Release)
+}
+else {
+    Write-Host "[4/5] Not signed (no .env)" -ForegroundColor DarkGray
+}
+
+# ── Step 5: Release or Run ──
 if ($Release) {
-    Write-Host "[4/4] Creating GitHub release v$version..." -ForegroundColor Yellow
+    Write-Host "[5/5] Creating GitHub release v$version..." -ForegroundColor Yellow
 
     # Check if release already exists. PowerShell 7.4+ promotes native non-zero
     # exits to terminating errors via $PSNativeCommandUseErrorActionPreference,
@@ -67,12 +81,16 @@ if ($Release) {
         if ($LASTEXITCODE -ne 0) { throw "Failed to delete existing release" }
     }
 
+    # The certificate sign.ps1 checked.
+    $thumbprint = (Get-AuthenticodeSignature $distExe).SignerCertificate.Thumbprint
     gh release create "v$version" (Join-Path $distDir $exeName) `
         --title "ScreenSearchOverlay v$version" `
         --notes @"
 ## ScreenSearchOverlay v$version
 
 Self-contained portable .exe — no .NET install needed.
+
+Signed by Jon Lepage, certificate thumbprint $thumbprint ([how to check](../../blob/main/README.md#verify-the-download)).
 
 See [README](../../blob/main/README.md) for features and usage.
 "@
@@ -82,11 +100,11 @@ See [README](../../blob/main/README.md) for features and usage.
     Write-Host "  Released v$version" -ForegroundColor Green
 }
 elseif ($Run) {
-    Write-Host "[4/4] Launching..." -ForegroundColor Yellow
+    Write-Host "[5/5] Launching..." -ForegroundColor Yellow
     Start-Process (Join-Path $distDir $exeName)
 }
 else {
-    Write-Host "[4/4] Done. Run with:" -ForegroundColor DarkGray
+    Write-Host "[5/5] Done. Run with:" -ForegroundColor DarkGray
     Write-Host "      .\build.ps1 -Run       # build + run" -ForegroundColor DarkGray
     Write-Host "      .\build.ps1 -Release   # build + GitHub release" -ForegroundColor DarkGray
 }

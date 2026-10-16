@@ -13,6 +13,7 @@ internal static partial class Loc
         ["pb.settings"] = "Ayarlar",
         ["pb.settings.languageRow"] = "Dil",
         ["pb.settings.themeRow"] = "Tema",
+        ["pb.settings.startWithWindows"] = "Windows ile başlat",
         ["theme.dark"] = "Koyu",
         ["theme.light"] = "Açık",
         ["theme.nightdev"] = "Night Dev",

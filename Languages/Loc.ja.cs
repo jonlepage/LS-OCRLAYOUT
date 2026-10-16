@@ -13,6 +13,7 @@ internal static partial class Loc
         ["pb.settings"] = "設定",
         ["pb.settings.languageRow"] = "言語",
         ["pb.settings.themeRow"] = "テーマ",
+        ["pb.settings.startWithWindows"] = "Windows の起動時に開始",
         ["theme.dark"] = "ダーク",
         ["theme.light"] = "ライト",
         ["theme.nightdev"] = "Night Dev",

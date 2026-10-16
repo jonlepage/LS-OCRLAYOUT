@@ -582,6 +582,8 @@ public partial class PromptWindow : Window
     private void LanguageMenu_Click(object sender, RoutedEventArgs e) => LanguagePopup.IsOpen = true;
     private void ThemeMenu_Click(object sender, RoutedEventArgs e) => ThemePopup.IsOpen = true;
 
+    private void SettingsPopup_Opened(object? sender, EventArgs e) => RefreshStartup();
+
     // A submenu is a popup of its own: it would outlive the panel.
     private void SettingsPopup_Closed(object? sender, EventArgs e)
     {
@@ -626,6 +628,25 @@ public partial class PromptWindow : Window
         _app.ClipboardImageFirst = ClipboardImageOption.IsChecked == true;
         _app.CheckUpdatesAutomatically = AutoUpdateOption.IsChecked == true;
         _app.SaveSettings();
+    }
+
+    // ── Start with Windows (App.Startup) ──
+
+    private bool _syncingStartup;
+
+    private void StartupOption_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_syncingStartup) return;
+        _app.SetStartWithWindows(StartupOption.IsChecked == true);
+        RefreshStartup(); // a write that failed unticks it
+    }
+
+    // Read from the registry, never kept: Task Manager may have turned it off.
+    private void RefreshStartup()
+    {
+        _syncingStartup = true;
+        StartupOption.IsChecked = _app.StartsWithWindows;
+        _syncingStartup = false;
     }
 
     // ── MCP server (App.Mcp) ──

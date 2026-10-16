@@ -818,6 +818,7 @@
                    VerticalOffset="2"
                    StaysOpen="False"
                    PopupAnimation="None"
+                   Opened="SettingsPopup_Opened"
                    Closed="SettingsPopup_Closed">
                 <Border Width="290"
                         Background="{DynamicResource PopupBg}"
@@ -962,6 +963,12 @@
                                     </ItemsControl>
                             </Border>
                         </Popup>
+                        <!-- Filled by RefreshStartup, from the registry, at every opening. -->
+                        <CheckBox x:Name="StartupOption"
+                                  Margin="8,8,8,2"
+                                  Content="{DynamicResource pb.settings.startWithWindows}"
+                                  Checked="StartupOption_Changed"
+                                  Unchecked="StartupOption_Changed" />
 
                         <Border Height="1" Background="{DynamicResource PopupBorder}" Margin="2,10" />
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.3
+
+- The app can now start with Windows: tick **Start with Windows** in ⚙ or in the tray menu.
+- The exe is now signed by its author: see **Verify the download** in the README to check that your copy is genuine.
+
 ## 1.6.2
 
 - Fixed: signed in to a ChatGPT account, a screenshot sent with text never left — the text took half a minute to appear and nothing was sent.

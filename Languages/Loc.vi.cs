@@ -13,6 +13,7 @@ internal static partial class Loc
         ["pb.settings"] = "Cài đặt",
         ["pb.settings.languageRow"] = "Ngôn ngữ",
         ["pb.settings.themeRow"] = "Giao diện",
+        ["pb.settings.startWithWindows"] = "Khởi động cùng Windows",
         ["theme.dark"] = "Tối",
         ["theme.light"] = "Sáng",
         ["theme.nightdev"] = "Night Dev",

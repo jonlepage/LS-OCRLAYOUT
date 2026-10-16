@@ -14,6 +14,24 @@ Ctrl+F for your whole screen, plus ChatGPT one keystroke away.
 
 Download `ScreenSearchOverlay.exe` from the [latest release](../../releases/latest) and run it. Portable, nothing to install. It updates itself: when a new version is out, click **Version x.y.z available** in the Prompt Builder.
 
+To have it ready at every sign-in, tick **Start with Windows** in ⚙ or in the tray menu. Untick it before deleting the exe.
+
+## Verify the download
+
+From version 1.6.3, the exe is signed by its author, Jon Lepage. Windows still says **Unknown publisher**: the certificate is self-issued, not bought from an authority. What proves a copy is genuine is its certificate's thumbprint, which must be:
+
+```
+7A95A361A4C5D1BE52E5500436E430F63F3E1988
+```
+
+Right-click the exe > **Properties** > **Digital Signatures** > **Details** > **View Certificate** > **Details** > **Thumbprint**, or in PowerShell:
+
+```powershell
+(Get-AuthenticodeSignature .\ScreenSearchOverlay.exe).SignerCertificate.Thumbprint
+```
+
+Another thumbprint, or no signature on 1.6.3 or later: the file is not genuine, don't run it.
+
 ## Screen search — Ctrl+Alt+F
 
 | | |
@@ -51,7 +69,7 @@ Select text anywhere, press **Ctrl+Alt+G**, pick a prompt, **Send**. ChatGPT ope
 
 Click the screenshot thumbnail to capture a region of the screen instead (Windows' snipping tool): it is attached right away.
 
-Prompts are edited in place and saved as you type. **⚙** holds the language (16 of them), the theme (dark / light / Night Dev / VS Code), temporary chat, automatic send (text / with an image), clipboard image first (use your Win+Shift+S capture instead of a new screenshot), text size and updates.
+Prompts are edited in place and saved as you type. **⚙** holds the language (16 of them), the theme (dark / light / Night Dev / VS Code), start with Windows, temporary chat, automatic send (text / with an image), clipboard image first (use your Win+Shift+S capture instead of a new screenshot), text size and updates.
 
 ### Add prompts from an AI agent (MCP)
 
@@ -76,4 +94,5 @@ See [CHANGELOG.md](CHANGELOG.md).
 ```powershell
 .\build.ps1 -Run       # build + launch
 .\build.ps1 -Release   # build + GitHub release (bump the version in package.json first)
+.\sign.ps1             # sign dist/ alone (build.ps1 does it when .env is present)
 ```

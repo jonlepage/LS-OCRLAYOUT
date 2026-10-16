@@ -52,6 +52,7 @@ public partial class App : Application
     private Forms.ToolStripMenuItem? _trayFind;
     private Forms.ToolStripMenuItem? _trayLanguageMenu;
     private Forms.ToolStripMenuItem? _trayOcrMenu;
+    private Forms.ToolStripMenuItem? _trayStartup;
     private Forms.ToolStripItem? _trayQuit;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -168,6 +169,10 @@ public partial class App : Application
         }
 
         menu.Items.Add(langMenu);
+        _trayStartup = new Forms.ToolStripMenuItem("", null, (_, _) => SetStartWithWindows(!StartsWithWindows));
+        menu.Items.Add(_trayStartup);
+        // At every opening: Task Manager may have turned it off meanwhile.
+        menu.Opening += (_, _) => _trayStartup.Checked = StartsWithWindows;
         _trayUpdate = menu.Items.Add("", null, (_, _) => RunUpdateAction(fromTray: true));
         menu.Items.Add(new Forms.ToolStripSeparator());
         _trayQuit = menu.Items.Add("", null, (_, _) =>
@@ -193,6 +198,7 @@ public partial class App : Application
         foreach (Forms.ToolStripMenuItem item in _trayLanguageMenu.DropDownItems)
             item.Checked = (string)item.Tag! == Loc.Current;
         _trayOcrMenu!.Text = Loc.T("tray.ocr");
+        _trayStartup!.Text = Loc.T("pb.settings.startWithWindows");
         _trayQuit!.Text = Loc.T("tray.quit");
         RefreshTrayUpdate();
     }

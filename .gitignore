@@ -12,3 +12,11 @@ prompts.json
 prompts.json.bak
 ScreenSearchOverlay.WebView2/
 chat.log
+
+# Code signing: the private key and its password never leave this machine
+signing/
+*.pfx
+.env
+sign.ps1
+build.ps1
+build.ps1
