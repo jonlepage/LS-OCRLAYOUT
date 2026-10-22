@@ -12,6 +12,8 @@ prompts.json
 prompts.json.bak
 prompt-history.json
 prompt-history.json.bak
+# Left by a save cut short (write-then-rename)
+*.tmp
 ScreenSearchOverlay.WebView2/
 chat.log
 
@@ -20,5 +22,4 @@ signing/
 *.pfx
 .env
 sign.ps1
-build.ps1
 build.ps1

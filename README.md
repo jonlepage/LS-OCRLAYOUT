@@ -94,8 +94,10 @@ See [CHANGELOG.md](CHANGELOG.md).
 
 ## Build
 
+Needs the .NET 10 SDK. The version comes from `package.json`.
+
 ```powershell
-.\build.ps1 -Run       # build + launch
-.\build.ps1 -Release   # build + GitHub release (bump the version in package.json first)
-.\sign.ps1             # sign dist/ alone (build.ps1 does it when .env is present)
+dotnet publish ScreenSearchOverlay.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
 ```
+
+The exe lands in `bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/`, unsigned: only the author's builds carry the signature above.
