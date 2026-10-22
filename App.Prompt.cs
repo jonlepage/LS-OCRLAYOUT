@@ -58,7 +58,7 @@ public partial class App
     {
         ChatLog.Start(GetFilePath(ChatLogFileName));
         Prompts = PromptLibrary.Load(GetFilePath(PromptsFileName), Loc.Current);
-        TextHistory = TextHistory.Load(GetFilePath(TextHistoryFileName), Prompts.Select(p => p.Id));
+        TextHistory = TextHistory.Load(GetFilePath(TextHistoryFileName));
         // Untouched starter prompts speak the UI language, now and after a change.
         if (StarterPrompts.Localize(Prompts, Loc.Current)) SavePromptsInBackground();
         Loc.Changed += () =>

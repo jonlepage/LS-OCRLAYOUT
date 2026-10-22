@@ -49,8 +49,11 @@ internal sealed class TextHistory
         return -1;
     }
 
-    // promptIds: the prompts there are. A deleted prompt's texts go with it.
-    internal static TextHistory Load(string path, IEnumerable<string> promptIds)
+    // Not pruned of the prompts missing from prompts.json: when that file is
+    // unreadable (a hand edit), starter prompts stand in for the user's, and
+    // their texts must still be here once it is fixed. A deleted prompt's
+    // texts go with it instead (PromptWindow.ForgetDeleted).
+    internal static TextHistory Load(string path)
     {
         try
         {
@@ -60,10 +63,9 @@ internal sealed class TextHistory
             // A hand-edited file may hold nulls where texts are expected.
             history.Text ??= "";
             history.Prompts ??= [];
-            var kept = new HashSet<string>(promptIds) { "" };
             foreach (var (id, entries) in history.Prompts.ToList())
             {
-                if (entries is null || !kept.Contains(id)) history.Prompts.Remove(id);
+                if (entries is null) history.Prompts.Remove(id);
                 else entries.RemoveAll(string.IsNullOrWhiteSpace);
             }
             return history;

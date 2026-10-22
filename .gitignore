@@ -10,6 +10,8 @@ search-history.json
 settings.json
 prompts.json
 prompts.json.bak
+prompt-history.json
+prompt-history.json.bak
 ScreenSearchOverlay.WebView2/
 chat.log
 

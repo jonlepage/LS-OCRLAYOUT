@@ -127,6 +127,9 @@ public partial class PromptWindow : Window
         // Nothing selected: the box keeps what it held, closed or not — and
         // the history walk where it was. A text it replaces that is in no
         // history (typed, or edited) goes into it first: never lost.
+        // The search is cleared first: a filter left matching nothing would
+        // file the text under no prompt.
+        SearchBox.Text = "";
         if (!string.IsNullOrWhiteSpace(text))
         {
             if (!_app.TextHistory.Contains(BodyBox.Text)) _app.TextHistory.Add(HistoryKey, BodyBox.Text);
@@ -135,7 +138,6 @@ public partial class PromptWindow : Window
             BodyBox.Text = text;
             ResetHistory();
         }
-        SearchBox.Text = "";
 
         // An image put in the clipboard was put there to be sent: attached.
         // After one, a screenshot goes back to the user's own choice.
@@ -411,6 +413,7 @@ public partial class PromptWindow : Window
         var index = _app.Prompts.IndexOf(current);
 
         _app.Prompts.RemoveAt(index);
+        ForgetDeleted();
         _deleted = (current, index);
         ShowUndo(Loc.T("pb.deleted", Truncate(current.DisplayName, 36)));
 
@@ -424,6 +427,7 @@ public partial class PromptWindow : Window
     private void Undo()
     {
         if (_deleted is not { } deleted) return;
+        _deleted = null; // back, with its texts
         _app.Prompts.Insert(Math.Min(deleted.Index, _app.Prompts.Count), deleted.Prompt);
         Select(deleted.Prompt);
         HideUndo();
@@ -441,9 +445,16 @@ public partial class PromptWindow : Window
     private void HideUndo()
     {
         _undoExpiry.Stop();
-        _deleted = null;
+        ForgetDeleted();
         UndoPanel.Visibility = Visibility.Collapsed;
         HintText.Visibility = Visibility.Visible;
+    }
+
+    // The deleted prompt can no longer come back: its texts go with it.
+    private void ForgetDeleted()
+    {
+        if (_deleted is { } deleted) _app.TextHistory.Prompts.Remove(deleted.Prompt.Id);
+        _deleted = null;
     }
 
     private void FocusSelectedItem()
@@ -971,7 +982,10 @@ public partial class PromptWindow : Window
 
         // "Nouveau prompt" then nothing typed: not worth keeping.
         foreach (var blank in _app.Prompts.Where(p => string.IsNullOrWhiteSpace(p.Name) && string.IsNullOrWhiteSpace(p.Prompt)).ToList())
+        {
             _app.Prompts.Remove(blank);
+            _app.TextHistory.Prompts.Remove(blank.Id);
+        }
         _saveSoon.Stop();
         _saveSelectionSoon.Stop();
         HideUndo();
