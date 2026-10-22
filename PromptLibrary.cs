@@ -118,8 +118,8 @@ public sealed class SavedPrompt : INotifyPropertyChanged
 internal static class PromptLibrary
 {
     // Indented, accents written as-is: the file is meant to be readable and
-    // hand-editable, not just a cache.
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    // hand-editable, not just a cache. prompt-history.json too (TextHistory).
+    internal static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -147,29 +147,49 @@ internal static class PromptLibrary
         }
     }
 
-    // Synchronous: for app exit, where a background write could be cut short.
+    private static readonly SnapshotWriter Writer = new();
+
     internal static void Save(string path, IEnumerable<SavedPrompt> prompts) =>
-        Write(path, Snapshot(prompts));
+        Writer.Save(path, JsonSerializer.Serialize(prompts, JsonOptions));
+
+    internal static void SaveInBackground(string path, IEnumerable<SavedPrompt> prompts) =>
+        Writer.SaveInBackground(path, JsonSerializer.Serialize(prompts, JsonOptions));
+
+    // The prompt goes first, so a prompt ending with ':' reads naturally:
+    // "Corrige et traduis ce texte :" + blank line + the text.
+    internal static string Compose(string? prompt, string? text)
+    {
+        var p = prompt?.Trim() ?? "";
+        var t = text?.Trim() ?? "";
+        if (p.Length == 0) return t;
+        if (t.Length == 0) return p;
+        return p + "\n\n" + t;
+    }
+}
+
+// A JSON file rewritten whole, from the UI thread: now, or on the thread
+// pool. One per file — its versions are that file's.
+internal sealed class SnapshotWriter
+{
+    private readonly Lock _lock = new();
+    private long _snapshotVersion;
+    private long _writtenVersion;
+
+    // Synchronous: for app exit, where a background write could be cut short.
+    internal void Save(string path, string json) => Write(path, (Interlocked.Increment(ref _snapshotVersion), json));
 
     // The JSON is taken on the calling (UI) thread — microseconds, and the
-    // prompts are only ever touched there — and the disk write, which an
+    // data is only ever touched there — and the disk write, which an
     // antivirus scan can stretch to tens of ms, happens on the thread pool.
-    internal static void SaveInBackground(string path, IEnumerable<SavedPrompt> prompts)
+    internal void SaveInBackground(string path, string json)
     {
-        var snapshot = Snapshot(prompts);
+        var snapshot = (Interlocked.Increment(ref _snapshotVersion), json);
         Task.Run(() => Write(path, snapshot));
     }
 
-    private static readonly Lock WriteLock = new();
-    private static long _snapshotVersion;
-    private static long _writtenVersion;
-
-    private static (long Version, string Json) Snapshot(IEnumerable<SavedPrompt> prompts) =>
-        (Interlocked.Increment(ref _snapshotVersion), JsonSerializer.Serialize(prompts, JsonOptions));
-
-    private static void Write(string path, (long Version, string Json) snapshot)
+    private void Write(string path, (long Version, string Json) snapshot)
     {
-        lock (WriteLock)
+        lock (_lock)
         {
             // Two background writes may reach the lock out of order: an older
             // snapshot never overwrites a newer one.
@@ -184,16 +204,5 @@ internal static class PromptLibrary
             }
             catch { }
         }
-    }
-
-    // The prompt goes first, so a prompt ending with ':' reads naturally:
-    // "Corrige et traduis ce texte :" + blank line + the text.
-    internal static string Compose(string? prompt, string? text)
-    {
-        var p = prompt?.Trim() ?? "";
-        var t = text?.Trim() ?? "";
-        if (p.Length == 0) return t;
-        if (t.Length == 0) return p;
-        return p + "\n\n" + t;
     }
 }

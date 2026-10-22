@@ -58,9 +58,12 @@ Add-WindowsCapability -Online -Name "Language.OCR~~~ja-JP~0.0.1.0"
 
 Select text anywhere, press **Ctrl+Alt+G**, pick a prompt, **Send**. ChatGPT opens in its own window with your prompt and text (and the screenshot, if ticked).
 
+Nothing selected: your last text is still there. Each prompt keeps its last 100 texts, as a terminal keeps its commands: **▲ ▼** above the text, or `↑` / `↓` in it.
+
 | | |
 |---|---|
 | Type, `↑` / `↓` | Find and pick a prompt |
+| `↑` / `↓` in the text | Previous texts of this prompt (from its first / last line) |
 | `Enter` / `Ctrl+Enter` | Send |
 | `Ctrl+1`…`9` | Pick the n-th prompt |
 | `Ctrl+N` / `Ctrl+D` | New / duplicate |
@@ -83,7 +86,7 @@ Then ask the agent "add a prompt that…": it appears in the Prompt Builder righ
 
 ## Privacy
 
-Nothing leaves your machine while you search. **文A** sends the screen's text to Google Translate; **Send** sends your message (and screenshot) to ChatGPT. Your ChatGPT login stays in `ScreenSearchOverlay.WebView2/`, next to the exe.
+Nothing leaves your machine while you search. **文A** sends the screen's text to Google Translate; **Send** sends your message (and screenshot) to ChatGPT. Your ChatGPT login stays in `ScreenSearchOverlay.WebView2/`, next to the exe, and your recent texts in `prompt-history.json`.
 
 ## What's new
 

@@ -80,6 +80,8 @@ public partial class PromptWindow : Window
         AutoSendImageOption.IsChecked = _app.ChatAutoSendImage;
         ClipboardImageOption.IsChecked = _app.ClipboardImageFirst;
         AutoUpdateOption.IsChecked = _app.CheckUpdatesAutomatically;
+        // The text left in the box before a restart.
+        BodyBox.Text = _app.TextHistory.Text;
 
         // Read before the list is filled: filling it selects the first prompt,
         // and every selection is remembered as the last one.
@@ -111,6 +113,7 @@ public partial class PromptWindow : Window
         Select(_app.Prompts.FirstOrDefault(p => p.Id == lastPromptId) ?? _app.Prompts.FirstOrDefault());
         RefreshListState();
         UpdateEditorState();
+        ResetHistory();
         RefreshUpdateRow();
     }
 
@@ -120,10 +123,18 @@ public partial class PromptWindow : Window
 
     internal void Load(string text, ScreenCapture capture)
     {
-        // Window already open and nothing selected this time: keep what was
-        // being written rather than wiping it.
-        if (text.Length > 0 || !IsVisible)
+        // A new selection takes the box, and the top of the prompt's history.
+        // Nothing selected: the box keeps what it held, closed or not — and
+        // the history walk where it was. A text it replaces that is in no
+        // history (typed, or edited) goes into it first: never lost.
+        if (!string.IsNullOrWhiteSpace(text))
+        {
+            if (!_app.TextHistory.Contains(BodyBox.Text)) _app.TextHistory.Add(HistoryKey, BodyBox.Text);
+            _app.TextHistory.Add(HistoryKey, text);
+            _app.SaveTextHistoryInBackground();
             BodyBox.Text = text;
+            ResetHistory();
+        }
         SearchBox.Text = "";
 
         // An image put in the clipboard was put there to be sent: attached.
@@ -238,6 +249,9 @@ public partial class PromptWindow : Window
         var image = AttachCapture.IsChecked == true ? _capture?.Png : null;
         if (message.Length == 0 && image is null) return;
 
+        // The newest of the prompt's texts; saved as the window closes.
+        _app.TextHistory.Add(HistoryKey, BodyBox.Text);
+        ResetHistory();
         Close();
         _app.SendToChat(message, image);
     }
@@ -867,6 +881,14 @@ public partial class PromptWindow : Window
             case Key.Down when none && inSearch:
                 Step(+1);
                 break;
+            // In the text: the prompt's history (PromptWindow.History). With
+            // nothing further that way, the key does what it always does.
+            case Key.Up when none && CaretOnEdge(first: true):
+                if (!StepHistory(+1)) return;
+                break;
+            case Key.Down when none && CaretOnEdge(first: false):
+                if (!StepHistory(-1)) return;
+                break;
             case Key.Delete when none && inList:
                 Delete();
                 break;
@@ -904,6 +926,7 @@ public partial class PromptWindow : Window
     {
         if (_view is null) return;
         UpdateEditorState();
+        ResetHistory();
         if (Selected is { } prompt && prompt.Id != _app.LastPromptId)
         {
             _app.LastPromptId = prompt.Id;
@@ -958,7 +981,9 @@ public partial class PromptWindow : Window
         if (_capture is not { FromClipboard: true })
             _app.PromptAttachScreenshot = AttachCapture.IsChecked == true;
         _app.PromptWindowSize = new Size(Width, Height);
+        _app.TextHistory.Text = BodyBox.Text;
         _app.SavePromptsInBackground();
+        _app.SaveTextHistoryInBackground();
         _app.SaveSettings();
 
         Hide();

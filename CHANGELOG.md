@@ -4,6 +4,8 @@
 
 - The app can now start with Windows: tick **Start with Windows** in ⚙ or in the tray menu.
 - The exe is now signed by its author: see **Verify the download** in the README to check that your copy is genuine.
+- **Text history**: each prompt remembers its last 100 texts. Go back to them with **▲ ▼** above the text, or with `↑` / `↓` in it, as in a terminal.
+- Fixed: Ctrl+Alt+G with nothing selected emptied the text — your last text now stays, even after a restart.
 
 ## 1.6.2
 

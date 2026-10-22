@@ -48,12 +48,11 @@ $size = [math]::Round((Get-Item (Join-Path $distDir $exeName)).Length / 1MB, 1)
 Write-Host "      dist/$exeName ($size MB)" -ForegroundColor Green
 
 # ── Step 4: Sign (sign.ps1; alone: npm run sign) ──
-# Every build is signed when .env is here. A release must be, and is
-# timestamped; local builds skip the timestamp server and work offline.
+# Every build is signed and timestamped when .env is here; a release must be.
 $distExe = Join-Path $distDir $exeName
 if ($Release -or (Test-Path (Join-Path $root ".env"))) {
     Write-Host "[4/5] Signing..." -ForegroundColor Yellow
-    & (Join-Path $root "sign.ps1") -File $distExe -NoTimestamp:(-not $Release)
+    & (Join-Path $root "sign.ps1") -File $distExe
 }
 else {
     Write-Host "[4/5] Not signed (no .env)" -ForegroundColor DarkGray

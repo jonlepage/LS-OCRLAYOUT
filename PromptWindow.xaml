@@ -265,6 +265,15 @@
             </Style.Triggers>
         </Style>
 
+        <!-- The text history's arrows: small enough for the section header, and
+             never taking the focus from the text box. -->
+        <Style x:Key="HistoryButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="22" />
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="Focusable" Value="False" />
+        </Style>
+
         <Style x:Key="ChromeButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
             <Setter Property="Width" Value="40" />
             <Setter Property="Height" Value="32" />
@@ -1292,7 +1301,31 @@
                         </Grid.RowDefinitions>
                         <Grid Margin="0,0,0,8">
                             <TextBlock Text="{DynamicResource pb.section.text}" Style="{StaticResource SectionLabel}" />
-                            <TextBlock x:Name="CharCount" Style="{StaticResource Hint}" HorizontalAlignment="Right" />
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <TextBlock x:Name="CharCount" Style="{StaticResource Hint}" />
+                                <!-- The selected prompt's texts (RefreshHistory): older up, as ↑
+                                     in the text. Negative margins: the header keeps its height. -->
+                                <StackPanel x:Name="HistoryPanel"
+                                            Orientation="Horizontal"
+                                            Margin="12,-4,-6,-4"
+                                            Visibility="Collapsed">
+                                    <Button x:Name="OlderTextButton"
+                                            Style="{StaticResource HistoryButton}"
+                                            Content="&#xE70E;"
+                                            ToolTip="{DynamicResource pb.tip.historyOlder}"
+                                            Click="OlderText_Click" />
+                                    <TextBlock x:Name="HistoryPosition"
+                                               Style="{StaticResource Hint}"
+                                               MinWidth="40"
+                                               TextAlignment="Center"
+                                               ToolTip="{DynamicResource pb.tip.history}" />
+                                    <Button x:Name="NewerTextButton"
+                                            Style="{StaticResource HistoryButton}"
+                                            Content="&#xE70D;"
+                                            ToolTip="{DynamicResource pb.tip.historyNewer}"
+                                            Click="NewerText_Click" />
+                                </StackPanel>
+                            </StackPanel>
                         </Grid>
                         <TextBox x:Name="BodyBox"
                                  Grid.Row="1"

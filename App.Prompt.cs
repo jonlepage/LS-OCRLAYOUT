@@ -19,6 +19,7 @@ public partial class App
     private const int PROMPT_HOTKEY_ID = 9001;
     private const uint VK_G = 0x47;
     private const string PromptsFileName = "prompts.json";
+    private const string TextHistoryFileName = "prompt-history.json";
     private const string ChatLogFileName = "chat.log";
     // WebView2 profile (cookies, the refused cookie banner). Next to the exe,
     // like every other file this app writes.
@@ -29,6 +30,7 @@ public partial class App
     private bool _promptOpening;
 
     internal ObservableCollection<SavedPrompt> Prompts { get; private set; } = [];
+    internal TextHistory TextHistory { get; private set; } = new();
     internal string LastPromptId { get; set; } = "";
     internal bool PromptAttachScreenshot { get; set; }
     internal Size? PromptWindowSize { get; set; }
@@ -56,6 +58,7 @@ public partial class App
     {
         ChatLog.Start(GetFilePath(ChatLogFileName));
         Prompts = PromptLibrary.Load(GetFilePath(PromptsFileName), Loc.Current);
+        TextHistory = TextHistory.Load(GetFilePath(TextHistoryFileName), Prompts.Select(p => p.Id));
         // Untouched starter prompts speak the UI language, now and after a change.
         if (StarterPrompts.Localize(Prompts, Loc.Current)) SavePromptsInBackground();
         Loc.Changed += () =>
@@ -89,12 +92,15 @@ public partial class App
         UnregisterHotKey(hotkeyHost, PROMPT_HOTKEY_ID);
         // Edits saved in the background may not have reached the disk yet.
         SavePrompts();
+        TextHistory.Save(GetFilePath(TextHistoryFileName));
         _chatWindow?.CloseForGood();
     }
 
     internal void SavePrompts() => PromptLibrary.Save(GetFilePath(PromptsFileName), Prompts);
 
     internal void SavePromptsInBackground() => PromptLibrary.SaveInBackground(GetFilePath(PromptsFileName), Prompts);
+
+    internal void SaveTextHistoryInBackground() => TextHistory.SaveInBackground(GetFilePath(TextHistoryFileName));
 
     // copySelection false: from the tray menu, nothing to copy.
     private async void ShowPromptBuilder(bool copySelection = true)
