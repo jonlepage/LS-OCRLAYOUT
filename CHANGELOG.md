@@ -2,7 +2,7 @@
 
 ## 1.7.0
 
-- **Show me where**: lost in an app your AI agent (Claude Code, Cursor…) is walking you through? Ask "where do I click?" — it circles the spot on your real screen, in any app. Tick **⚙ > MCP server** to use it.
+- **Show me where**: lost in an app your LLM agent (Claude Code, Cursor…) is walking you through? Ask "where do I click?" — it circles the spot on your real screen, in any app. Tick **⚙ > MCP server** to use it.
 - **Explain this screen**: the agent frames each part of an app in its own color, numbered, with what it is for.
 - **Step-by-step guide**: ask "how do I change…" and the agent walks you through the clicks. It circles each one on the live app, you click the real button, and the next step appears. A panel at the top right lists the steps; **Esc** or its ✕ leaves the guide.
 - To show you where to click, the agent captures the app's window and sends it to its AI. Only while **MCP server** is ticked; it is off at every start.
