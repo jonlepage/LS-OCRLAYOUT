@@ -1,8 +1,9 @@
 namespace ScreenSearchOverlay;
 
 // The MCP server for AI agents (see McpServer). Off at every start, on only
-// while the user wants an agent to add prompts — so it is never saved.
-// Fixed port: the install command the agent keeps never changes.
+// while the user wants an agent to add prompts or guide them on screen — so
+// it is never saved. Fixed port: the install command the agent keeps never
+// changes. The screen tools live in App.Guide.cs.
 public partial class App : IPromptStore
 {
     private McpServer? _mcp;
@@ -20,7 +21,7 @@ public partial class App : IPromptStore
         McpError = null;
         if (enabled)
         {
-            var server = new McpServer(this);
+            var server = new McpServer(this, this);
             try
             {
                 server.Start(McpServer.DefaultPort);

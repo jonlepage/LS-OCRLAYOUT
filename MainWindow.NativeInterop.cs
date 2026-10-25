@@ -52,7 +52,22 @@ public partial class MainWindow : Window
     internal static ScreenInfo GetCurrentScreenInfo()
     {
         GetCursorPos(out var cursorPos);
-        var hMonitor = MonitorFromPoint(cursorPos, MONITOR_DEFAULTTONEAREST);
+        return GetMonitorScreenInfo(MonitorFromPoint(cursorPos, MONITOR_DEFAULTTONEAREST));
+    }
+
+    // The monitor showing most of that window
+    internal static ScreenInfo GetWindowScreenInfo(IntPtr hwnd) =>
+        GetMonitorScreenInfo(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST));
+
+    // That window's rectangle on the screen, invisible resize borders included
+    internal static ScreenInfo GetWindowBounds(IntPtr hwnd)
+    {
+        GetWindowRect(hwnd, out var r);
+        return new ScreenInfo(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top);
+    }
+
+    private static ScreenInfo GetMonitorScreenInfo(IntPtr hMonitor)
+    {
         var monitorInfo = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
         GetMonitorInfo(hMonitor, ref monitorInfo);
         var r = monitorInfo.rcMonitor;
@@ -67,6 +82,9 @@ public partial class MainWindow : Window
 
     [LibraryImport("user32.dll")]
     private static partial IntPtr MonitorFromPoint(POINT pt, uint dwFlags);
+
+    [LibraryImport("user32.dll")]
+    private static partial IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
 
     [LibraryImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
     [return: MarshalAs(UnmanagedType.Bool)]

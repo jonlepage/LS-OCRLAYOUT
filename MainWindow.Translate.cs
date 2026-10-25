@@ -285,14 +285,15 @@ public partial class MainWindow : Window
         }
     }
 
-    // In translate mode, a left click anywhere outside the search bar closes
-    // the overlay. Same Down/Up split as the right click (see
-    // Window_PreviewMouseRightButtonDown): consume Down, close on Up, so the
-    // app underneath never receives an orphan button release.
+    // In translate mode, and in guide mode, a left click anywhere outside the
+    // search bar (and the guide's legend) closes the overlay. Same Down/Up
+    // split as the right click (see Window_PreviewMouseRightButtonDown):
+    // consume Down, close on Up, so the app underneath never receives an
+    // orphan button release.
     private void Window_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (!_translateMode) return;
-        if (e.OriginalSource is DependencyObject src && IsInsideSearchBar(src)) return;
+        if (!_translateMode && _guide is null) return;
+        if (e.OriginalSource is DependencyObject src && (IsInsideSearchBar(src) || IsInsideGuideLegend(src))) return;
         _leftClickArmed = true;
         e.Handled = true;
     }

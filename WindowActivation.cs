@@ -26,11 +26,60 @@ internal static partial class WindowActivation
         window.Activate();
     }
 
+    // Another program's window (MCP look_at_screen), or our overlay that must
+    // stay topmost; restored if minimized. Borrowing the input of the
+    // foreground thread first: an Alt key-up landing on another program could
+    // open its menu bar. true when the screen changes, so the caller lets it
+    // repaint before capturing.
+    internal static bool BringToFront(IntPtr hwnd)
+    {
+        var restored = IsIconic(hwnd) && ShowWindow(hwnd, SW_RESTORE);
+        var foreground = GetForegroundWindow();
+        if (foreground == hwnd) return restored;
+
+        if (!SetForegroundWindow(hwnd) || GetForegroundWindow() != hwnd)
+        {
+            var theirs = GetWindowThreadProcessId(foreground, IntPtr.Zero);
+            var ours = GetCurrentThreadId();
+            if (theirs != 0 && theirs != ours && AttachThreadInput(ours, theirs, true))
+            {
+                SetForegroundWindow(hwnd);
+                AttachThreadInput(ours, theirs, false);
+            }
+        }
+        if (GetForegroundWindow() != hwnd)
+        {
+            keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
+            SetForegroundWindow(hwnd);
+            keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+        }
+        return true;
+    }
+
     private const byte VK_MENU = 0x12;
     private const uint KEYEVENTF_KEYUP = 0x0002;
+    private const int SW_RESTORE = 9;
 
     [LibraryImport("user32.dll")]
     private static partial IntPtr GetForegroundWindow();
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool IsIconic(IntPtr hWnd);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [LibraryImport("user32.dll")]
+    private static partial uint GetWindowThreadProcessId(IntPtr hWnd, IntPtr processId);
+
+    [LibraryImport("kernel32.dll")]
+    private static partial uint GetCurrentThreadId();
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool AttachThreadInput(uint idAttach, uint idAttachTo, [MarshalAs(UnmanagedType.Bool)] bool fAttach);
 
     [LibraryImport("user32.dll")]
     private static partial void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);

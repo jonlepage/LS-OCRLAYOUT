@@ -109,7 +109,7 @@ internal sealed class ScreenCapture
         return new CapturePreviews(ToBitmapSource(thumbnail), ToBitmapSource(preview));
     }
 
-    private static Bitmap Scale(Bitmap source, int width)
+    internal static Bitmap Scale(Bitmap source, int width)
     {
         width = Math.Min(width, source.Width);
         var height = Math.Max(1, (int)Math.Round(source.Height * (double)width / source.Width));
@@ -142,7 +142,7 @@ internal sealed class ScreenCapture
         }
     }
 
-    private static byte[] EncodePng(Bitmap bitmap)
+    internal static byte[] EncodePng(Bitmap bitmap)
     {
         using var stream = new MemoryStream();
         bitmap.Save(stream, ImageFormat.Png);

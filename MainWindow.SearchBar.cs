@@ -165,11 +165,13 @@ public partial class MainWindow : Window
         CloseAndSaveQuery();
     }
 
-    private bool IsInsideSearchBar(DependencyObject obj)
+    private bool IsInsideSearchBar(DependencyObject obj) => IsInside(obj, SearchBarBorder);
+
+    private static bool IsInside(DependencyObject obj, DependencyObject container)
     {
         while (obj != null)
         {
-            if (ReferenceEquals(obj, SearchBarBorder)) return true;
+            if (ReferenceEquals(obj, container)) return true;
             obj = System.Windows.Media.VisualTreeHelper.GetParent(obj)
                   ?? System.Windows.LogicalTreeHelper.GetParent(obj);
         }

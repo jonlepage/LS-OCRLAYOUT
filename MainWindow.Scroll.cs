@@ -23,6 +23,9 @@ public partial class MainWindow : Window
 
     private void Window_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
+        // Guide mode: the mark belongs to the captured frame, a new one would lose it
+        if (_guide is not null) { e.Handled = true; return; }
+
         // Only entered when click-through is OFF — start of a session.
         if (!_scrollSessionActive)
             BeginScrollSession(e.Delta);

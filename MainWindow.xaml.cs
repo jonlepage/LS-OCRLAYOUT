@@ -13,6 +13,7 @@ namespace ScreenSearchOverlay;
 //   MainWindow.Search.cs         — search box, regex, menu, highlights
 //   MainWindow.SearchBar.cs      — search bar drag, position, size, key nav
 //   MainWindow.Translate.cs      — translate mode: translated text over the screen
+//   MainWindow.Guide.cs          — guide mode: an AI agent circles a spot or frames zones (MCP)
 //   MainWindow.NativeInterop.cs  — Win32 P/Invoke + helpers
 public partial class MainWindow : Window
 {
@@ -47,10 +48,11 @@ public partial class MainWindow : Window
     // site entirely — including the interpolated string allocation. Enable
     // by adding <DefineConstants>LS_DEBUG_LOG</DefineConstants> to the csproj.
 
-    public MainWindow(Bitmap screenshot, ScreenInfo screenInfo)
+    public MainWindow(Bitmap screenshot, ScreenInfo screenInfo, GuideScene? guide = null)
     {
         _screenshot = screenshot;
         _screenInfo = screenInfo;
+        _guide = guide;
 
         InitializeComponent();
 
@@ -99,6 +101,13 @@ public partial class MainWindow : Window
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
+        // An agent's spot or zones: no search, no OCR
+        if (_guide is not null)
+        {
+            ShowGuide(_guide);
+            return;
+        }
+
         // Apply position after layout so ActualWidth is available
         ApplySearchBarPosition();
 
