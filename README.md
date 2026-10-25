@@ -2,9 +2,9 @@
 
 Lost in a complex app? Ask your AI agent (Claude Code, Cursor…) "where do I click?": it looks at the app's window and circles the spot on your real screen, in any app.
 
-[![Watch the guide in action (25 s)](guide-preview.jpg)](LSOCR-guide.mp4)
+[![The assistance overlay guiding a user in Blender](guide.gif)](https://github.com/jonlepage/LS-OCRLAYOUT/raw/main/LSOCR-guide.mp4)
 
-▶ [Watch it in action](LSOCR-guide.mp4) (25 s, Blender)
+▶ [Full video with sound](https://github.com/jonlepage/LS-OCRLAYOUT/raw/main/LSOCR-guide.mp4) (25 s, 6 MB)
 
 - **Show me where**: the agent brings the app to the front, looks at its window, and circles the spot on your screen in red. `Esc` or a click closes it.
 - **Explain this screen**: the agent frames each part of the app in its own color, numbered, with what it is for in a legend.
