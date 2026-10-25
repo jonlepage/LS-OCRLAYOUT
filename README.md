@@ -1,3 +1,23 @@
+# Assistance overlay
+
+Lost in a complex app? Ask your AI agent (Claude Code, Cursor…) "where do I click?": it looks at the app's window and circles the spot on your real screen, in any app.
+
+[![Watch the guide in action (25 s)](guide-preview.jpg)](LSOCR-guide.mp4)
+
+▶ [Watch it in action](LSOCR-guide.mp4) (25 s, Blender)
+
+- **Show me where**: the agent brings the app to the front, looks at its window, and circles the spot on your screen in red. `Esc` or a click closes it.
+- **Explain this screen**: the agent frames each part of the app in its own color, numbered, with what it is for in a legend.
+- **Step by step**: ask "how do I change…" and the agent walks you there. It circles each click on the live app, you click the real button, and the next step appears. A panel at the top right lists the steps; `Esc` or its ✕ leaves the guide.
+
+Set it up once: [install the app](#install), tick **⚙ > MCP server** in the Prompt Builder (**Ctrl+Alt+G**), and give your agent the line the window shows, e.g. for Claude Code:
+
+```
+claude mcp add --scope user --transport http ls-ocrlayout http://localhost:47821/mcp
+```
+
+The server only answers this computer and is off at every start: an agent can look at your windows only while the box is ticked.
+
 # ScreenSearchOverlay
 
 Ctrl+F for your whole screen, plus ChatGPT one keystroke away.
@@ -74,19 +94,9 @@ Click the screenshot thumbnail to capture a region of the screen instead (Window
 
 Prompts are edited in place and saved as you type. **⚙** holds the language (16 of them), the theme (dark / light / Night Dev / VS Code), start with Windows, temporary chat, automatic send (text / with an image), clipboard image first (use your Win+Shift+S capture instead of a new screenshot), text size and updates.
 
-### AI agents (MCP): add prompts, show you where to click
+### Add prompts from an AI agent
 
-Tick **⚙ > MCP server**: the window shows the line to give your agent once, e.g. for Claude Code:
-
-```
-claude mcp add --scope user --transport http ls-ocrlayout http://localhost:47821/mcp
-```
-
-Then ask the agent "add a prompt that…": it appears in the Prompt Builder right away. The agent can list, add and edit prompts, never delete them.
-
-Lost in an app the agent is walking you through? Ask it "show me where": it brings the app to the front, captures its window, finds the spot, and circles it on your screen in red. Or ask it to explain the screen: it frames each part in its own color, numbered, with what it is for in a legend. `Esc` or a click closes it.
-
-The server only answers this computer and is off at every start.
+With the MCP server on (set up in **Assistance overlay** above), ask your agent "add a prompt that…": it appears in the Prompt Builder right away. The agent can list, add and edit prompts, never delete them.
 
 ## Privacy
 

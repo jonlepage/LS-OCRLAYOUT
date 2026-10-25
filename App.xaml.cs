@@ -253,6 +253,7 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         TeardownUpdates();
+        StopInteractiveGuide(GuideStepOutcome.Left);
         StopMcp();
         if (_hwndSource != null)
         {
@@ -284,6 +285,11 @@ public partial class App : Application
         {
             handled = true;
             ShowPromptBuilder();
+        }
+        else if (msg == WM_HOTKEY && wParam.ToInt32() == GUIDE_ESC_HOTKEY_ID)
+        {
+            handled = true;
+            StopInteractiveGuide(GuideStepOutcome.Left);
         }
         return IntPtr.Zero;
     }

@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace ScreenSearchOverlay;
 
-internal sealed record TopWindow(IntPtr Handle, string Title, string Process);
+internal sealed record TopWindow(IntPtr Handle, string Title, string Process, uint ProcessId);
 
 // The other programs' windows, front to back, as the taskbar shows them:
 // visible, titled, not a tool palette, not hidden by the system (cloaked
@@ -33,7 +33,7 @@ internal static unsafe partial class TopWindows
             if (title.Length == 0) continue;
             GetWindowThreadProcessId(hwnd, out var pid);
             if (pid == own) continue;
-            windows.Add(new TopWindow(hwnd, title, names.GetValueOrDefault((int)pid, "")));
+            windows.Add(new TopWindow(hwnd, title, names.GetValueOrDefault((int)pid, ""), pid));
         }
         return windows;
     }

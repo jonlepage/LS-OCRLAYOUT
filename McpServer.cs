@@ -28,6 +28,15 @@ internal sealed record GuideSpot(double X, double Y, double? Width, double? Heig
 // A zone the agent frames and explains (explain_screen), in pixels of its last look.
 internal sealed record GuideArea(double Left, double Top, double Width, double Height, string Title, string? Text);
 
+// How a guide_step ended. Left: the user quit (Esc, ✕). Replaced: a newer
+// guide call took over.
+internal enum GuideStepOutcome { Clicked, ClickedElsewhere, NoClick, Left, Replaced, Failed }
+
+// Clicked, ClickedElsewhere: the capture taken once the app reacted, and
+// where the click landed in it (null: off the captured window).
+internal sealed record GuideStepResult(
+    GuideStepOutcome Outcome, ScreenLook? Look = null, System.Drawing.PointF? Click = null, string? Error = null);
+
 // What the screen tools act on: the screen and the overlay (App, on its UI thread).
 internal interface IScreenGuide
 {
@@ -39,14 +48,18 @@ internal interface IScreenGuide
     Task<string?> ShowAsync(GuideSpot spot);
     // Same; numbered in the list's order.
     Task<string?> ExplainAsync(IReadOnlyList<GuideArea> areas);
+    // Shows step current (1-based) of steps on the live app, then waits for
+    // the user's click.
+    Task<GuideStepResult> StepAsync(IReadOnlyList<string> steps, int current, GuideSpot spot);
+    Task EndGuideAsync(string? message);
 }
 
 // A minimal MCP server (Streamable HTTP, JSON responses only) so an AI agent
 // — Claude Code, Cursor… — can list, add and edit the Prompt Builder's
-// prompts, and show the user where to click on their screen or explain its
-// parts. No SDK: the protocol here is three JSON-RPC methods and seven
-// tools. No delete tool on purpose: an agent that gets it wrong can't lose
-// anything.
+// prompts, and show the user where to click on their screen, explain its
+// parts or walk them through a path of clicks. No SDK: the protocol here is
+// three JSON-RPC methods and nine tools. No delete tool on purpose: an agent
+// that gets it wrong can't lose anything.
 //
 // Loopback only (http.sys "localhost" prefix: no admin rights needed, not
 // reachable from the network). A request carrying an Origin header comes
@@ -57,6 +70,11 @@ internal sealed class McpServer : IDisposable
     internal const string ServerName = "ls-ocrlayout";
     // One color each (the palette's nine), single-digit numbers
     private const int MaxZones = 9;
+    // The steps panel stays small
+    private const int MaxGuideSteps = 12;
+    // How long guide_step waits for the click: under the agents' tool-call
+    // timeouts. Also written in guide_step's description.
+    internal const int GuideStepWaitSeconds = 45;
     private static readonly string[] ProtocolVersions = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
     // The palette of the Prompt Builder, by name for the agents.
@@ -183,16 +201,20 @@ internal sealed class McpServer : IDisposable
         PROMPTS (list_prompts, add_prompt, update_prompt)
         Prompt = instruction placed before the user's selected text, e.g. "Fix the spelling of this text:". list_prompts before adding: no duplicates. No delete tool, by design.
 
-        SCREEN GUIDE (list_windows, look_at_screen, show_me, explain_screen)
+        SCREEN GUIDE (list_windows, look_at_screen, show_me, explain_screen, guide_step, end_guide)
         Why: you guide the user through an app on their PC and words fail ("the icon on the right", among 50) -> you see their window, you draw on their real screen.
-        When: "where?", "I can't find it", "show me", "circle it", "explain this screen", user lost in a dense UI (Blender, Unity, game/level editors, settings dialogs, any app). Not when you can answer without seeing.
+        When: "where?", "I can't find it", "show me", "circle it", "explain this screen", "how do I change X in <app>", user lost in a dense UI (Blender, Unity, game/level editors, settings dialogs, any app). Not when you can answer without seeing, nor when they only want the answer in words.
+        Pick the tool:
+        - One spot (a button, a field) -> show_me: frozen picture, closes on click.
+        - The layout of a screen (what is where, what for) -> explain_screen: frozen picture, numbered frames + legend.
+        - A path of clicks ("Edit > Preferences > Interface > Resolution Scale") -> guide_step, one call per step: rings the target on the LIVE app, waits for the user's real click, returns the app as it reacted; end_guide after the last.
         Usual flow (a default, not a script):
         1. App name unknown -> list_windows. Obvious name -> skip it.
         2. look_at_screen(window = process name) -> app comes to the front; you get its frontmost window as an image with a coordinate grid.
         3. Locate the target. x/y/left/top = pixels of THAT image; the server maps them to the real screen and monitor.
-        4. One spot to click or look at -> show_me. Parts of a screen to teach -> explain_screen, plus the same numbered explanation in chat.
-        5. In chat: what you marked, how sure you are, then "Esc or a click closes it, then do it in the app" (a click on the overlay only closes it, it never reaches the app).
-        6. User acted (menu opened, dialog, new tab) -> look_at_screen again before the next mark: the screen changed, old coordinates are void, only the latest capture is kept.
+        4. Mark it with the tool picked above.
+        5. In chat: what you marked, how sure you are. show_me/explain_screen: "Esc or a click closes it, then do it in the app" (a click on that picture only closes it, it never reaches the app). guide_step: the user clicks the real app; Esc or the panel's ✕ leaves the guide.
+        6. Frozen tools: user acted (menu opened, dialog, new tab) -> look_at_screen again before the next mark: old coordinates are void, only the latest capture is kept. guide_step returns the new capture itself: no look_at_screen mid-guide (it brings the main window forward and closes open menus).
         Every app, workflow, UI language and Windows setup differs (themes, scaling, several monitors, localized titles): adapt. Explore with several looks, mark a whole zone when a spot is uncertain, mix tools, ask the user what they see when the image is ambiguous.
         Defaults worth keeping:
         - Always pass window: without it you get the whole monitor under the mouse, usually the chat itself.
@@ -299,7 +321,7 @@ internal sealed class McpServer : IDisposable
                     Circle one spot on the user's real screen: an overlay over the latest look_at_screen capture (frozen picture), rest of the screen dimmed, a red ring drawn like a pen stroke then rippling, the label in a bubble beside it.
                     x, y = center of the target, in pixels of that image. Single icon or button: no width/height (fixed ring). Panel, toolbar, list, group of icons, or a spot you are not sure of: width/height of the zone (image px), the ring encloses it.
                     label: short (about 12 words max), the user's language, what to do + what it is: "Click the gear: project settings". Unsure -> "Probably...".
-                    One call = one mark; a new call replaces the previous one. Several things at once -> explain_screen. Multi-step task -> one show_me per step, a new look_at_screen after each user action.
+                    One call = one mark; a new call replaces the previous one. Several things at once -> explain_screen. A path of several clicks -> guide_step (live, waits for each click).
                     The overlay is a picture: Esc or a click closes it, the click does not reach the app. Tell the user to close it, then act.
                     User says it is off target -> look_at_screen again (window moved, screen changed), re-locate, retry; widen with width/height when unsure.
                     Errors: "Call look_at_screen first" -> no capture yet; "outside the image" -> coordinates beyond the latest image size (given in the error).
@@ -359,6 +381,58 @@ internal sealed class McpServer : IDisposable
                     ["required"] = new JsonArray("zones"),
                 },
             },
+            new JsonObject
+            {
+                ["name"] = "guide_step",
+                ["description"] = """
+                    Interactive guide: walk the user through a path of clicks in the LIVE app (e.g. Blender: Edit > Preferences... > Interface > Resolution Scale). Each call rings one step's target over the real screen (click-through: they click the real button through the ring), lists the whole path in a panel at the top-right (current step, "Esc to quit", a ✕), then WAITS for their click. Once the app has reacted (~0.7 s: menu open, window shown) it returns a fresh capture of the app's frontmost window: locate the next step in it, call guide_step again.
+                    Start with look_at_screen(window). x/y/width/height = pixels of the latest image: look_at_screen's, then each guide_step's. No look_at_screen mid-guide: it brings the main window forward and closes open menus.
+                    steps: the whole path, short names as written in the app; same list every call, updated when the path turns out different. current: the step shown now (1-based). label: what to do, user's language ("Click Edit").
+                    Results:
+                    - clicked -> next step; after the last, end_guide.
+                    - clicked elsewhere -> read the new image: something else opened? Show the step again (wider zone) or adapt the steps.
+                    - no click in 45 s -> ring stays; call again with the same arguments (a click made meanwhile counts) or ask in chat.
+                    - left (Esc / ✕) -> guide closed: stop calling, answer in chat. They may just have needed the first step.
+                    Only clicks inside the captured window count (the chat, other apps: ignored). Esc belongs to the guide while it runs. Submenus opening on hover: ring the item inside them. Typing or shortcuts can't be detected: make it the last step (ring the field, label "Click, type 1.25, Enter"), then end_guide. A drag (slider) starts with a click: it counts.
+                    """,
+                ["inputSchema"] = new JsonObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = new JsonObject
+                    {
+                        ["steps"] = new JsonObject
+                        {
+                            ["type"] = "array",
+                            ["minItems"] = 1,
+                            ["maxItems"] = MaxGuideSteps,
+                            ["items"] = new JsonObject { ["type"] = "string" },
+                            ["description"] = "The whole path, one short name per step, as written in the app: [\"Edit\", \"Preferences...\", \"Interface\", \"Resolution Scale\"].",
+                        },
+                        ["current"] = new JsonObject { ["type"] = "integer", ["description"] = "The step shown now, 1-based." },
+                        ["x"] = new JsonObject { ["type"] = "number", ["description"] = "Center of this step's target, in pixels of the latest image." },
+                        ["y"] = new JsonObject { ["type"] = "number", ["description"] = "Center of this step's target, in pixels of the latest image." },
+                        ["width"] = new JsonObject { ["type"] = "number", ["description"] = "Zone width in image pixels, when the target is a row, a tab, a field. Omit for an icon or button." },
+                        ["height"] = new JsonObject { ["type"] = "number", ["description"] = "Zone height in image pixels. Omit for an icon or button." },
+                        ["label"] = new JsonObject { ["type"] = "string", ["description"] = "What to do now, in the user's language: \"Click Edit\"." },
+                    },
+                    ["required"] = new JsonArray("steps", "current", "x", "y"),
+                },
+            },
+            new JsonObject
+            {
+                ["name"] = "end_guide",
+                ["description"] = """
+                    Close the interactive guide: every step shows done with your message (default "Done"), then it disappears after ~1.5 s. Call it after the last step's click, or to drop the guide (the user goes on alone). Then sum up in the chat, e.g. what to type in the field the last step pointed at.
+                    """,
+                ["inputSchema"] = new JsonObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = new JsonObject
+                    {
+                        ["message"] = new JsonObject { ["type"] = "string", ["description"] = "Short closing words in the user's language: \"Done: type 1.25, then Enter\"." },
+                    },
+                },
+            },
         ];
     }
 
@@ -412,15 +486,56 @@ internal sealed class McpServer : IDisposable
                 if (look is null)
                     return Result(id, ToolText(error ?? "Capture failed.", isError: true));
                 var what = look.Window is null ? "Screen under the mouse" : $"Window \"{look.Window}\"";
-                var text = $"{what}, as a {look.Width}×{look.Height} px image"
-                    + (grid ? " (grid every 100 px)" : "") + ". show_me takes x/y in these pixels.";
-                return Result(id, new JsonObject
+                return LookResult(id, look, $"{what}, as a {look.Width}×{look.Height} px image"
+                    + (grid ? " (grid every 100 px)" : "") + ". Coordinates for show_me, explain_screen and guide_step are in these pixels.");
+            }
+
+            case "guide_step":
+            {
+                if (args["steps"] is not JsonArray list || list.Count == 0 || list.Count > MaxGuideSteps)
+                    return Result(id, ToolText($"steps is required: 1 to {MaxGuideSteps} short step names.", isError: true));
+                var steps = list.Select(s => s is JsonValue v && v.TryGetValue<string>(out var step) ? step.Trim() : "").ToList();
+                if (steps.Any(string.IsNullOrEmpty))
+                    return Result(id, ToolText("Each step is a non-empty string.", isError: true));
+                if (Number("current") is not { } number || number < 1 || number > steps.Count || number % 1 != 0)
+                    return Result(id, ToolText($"current: the step shown now, 1 to {steps.Count}.", isError: true));
+                if (Number("x") is not { } x || Number("y") is not { } y)
+                    return Result(id, ToolText("x and y are required.", isError: true));
+                var width = Number("width");
+                var height = Number("height");
+                if (width <= 0 || height <= 0)
+                    return Result(id, ToolText("width and height must be positive.", isError: true));
+
+                var current = (int)number;
+                var step = $"Step {current}/{steps.Count} (\"{steps[current - 1]}\")";
+                var result = await _screen.StepAsync(steps, current, new GuideSpot(x, y, width, height, Text("label")?.Trim()));
+                string Capture(ScreenLook look) =>
+                    $"Below: the app once it reacted, {(look.Window is null ? "the screen" : $"window \"{look.Window}\"")}, {look.Width}×{look.Height} px; next coordinates in these pixels.";
+                return result.Outcome switch
                 {
-                    ["content"] = new JsonArray(
-                        new JsonObject { ["type"] = "text", ["text"] = text },
-                        new JsonObject { ["type"] = "image", ["data"] = Convert.ToBase64String(look.Png), ["mimeType"] = "image/png" }),
-                    ["isError"] = false,
-                });
+                    GuideStepOutcome.Clicked => LookResult(id, result.Look!,
+                        $"{step} done: the user clicked the target. {Capture(result.Look!)} "
+                        + (current == steps.Count ? "That was the last step: end_guide." : "Locate step " + (current + 1) + ", then guide_step.")),
+                    GuideStepOutcome.ClickedElsewhere => LookResult(id, result.Look!,
+                        $"{step}: the user clicked outside the target"
+                        + (result.Click is { } at ? $", at {at.X:0}, {at.Y:0} of the image below" : "") + $". {Capture(result.Look!)} "
+                        + "See what happened, then show this step again (wider zone?) or adapt the steps."),
+                    GuideStepOutcome.NoClick => Result(id, ToolText(
+                        $"{step}: no click within {GuideStepWaitSeconds} s; the ring stays on screen. Call guide_step again with the "
+                        + "same arguments to keep waiting (a click made meanwhile counts), or ask the user in the chat.")),
+                    GuideStepOutcome.Left => Result(id, ToolText(
+                        "The user left the interactive guide (Esc or ✕): it is closed. Stop calling guide_step unless they ask "
+                        + "again; answer in the chat.")),
+                    GuideStepOutcome.Replaced => Result(id, ToolText(
+                        "This step was replaced by a newer call (guide_step, end_guide, show_me or explain_screen).")),
+                    _ => Result(id, ToolText(result.Error ?? "The guide failed.", isError: true)),
+                };
+            }
+
+            case "end_guide":
+            {
+                await _screen.EndGuideAsync(Text("message")?.Trim() is { Length: > 0 } message ? message : null);
+                return Result(id, ToolText("Guide closed: every step shows done, then it disappears."));
             }
 
             case "show_me":
@@ -465,6 +580,14 @@ internal sealed class McpServer : IDisposable
                 return Error(id, -32602, $"Unknown tool: {name}");
         }
     }
+
+    private static JsonObject LookResult(JsonNode id, ScreenLook look, string text) => Result(id, new JsonObject
+    {
+        ["content"] = new JsonArray(
+            new JsonObject { ["type"] = "text", ["text"] = text },
+            new JsonObject { ["type"] = "image", ["data"] = Convert.ToBase64String(look.Png), ["mimeType"] = "image/png" }),
+        ["isError"] = false,
+    });
 
     private static string? TextIn(JsonObject o, string key) =>
         o[key] is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;

@@ -38,6 +38,8 @@ public partial class App : IPromptStore
 
     private void StopMcp()
     {
+        // No agent left to guide the user
+        StopInteractiveGuide(GuideStepOutcome.Left);
         _mcp?.Dispose();
         _mcp = null;
     }

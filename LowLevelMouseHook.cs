@@ -22,9 +22,14 @@ internal sealed partial class LowLevelMouseHook : IDisposable
 {
     private const int WH_MOUSE_LL = 14;
     private const int WM_MOUSEWHEEL = 0x020A;
+    private const int WM_LBUTTONDOWN = 0x0201;
+    private const int WM_RBUTTONDOWN = 0x0204;
     private const uint WM_QUIT = 0x0012;
 
     public event Action? WheelDetected;
+    // Left or right button pressed, at this screen point. Watched only: the
+    // click still goes to the app under the mouse (MCP interactive guide).
+    public event Action<int, int>? ButtonDown;
 
     private IntPtr _hookId = IntPtr.Zero;
     private HookProc? _proc;                     // rooted for the hook lifetime
@@ -116,6 +121,20 @@ internal sealed partial class LowLevelMouseHook : IDisposable
                     else
                         handler();
                 }
+            }
+            catch { /* never block the input thread */ }
+        }
+        else if (nCode >= 0 && (int)wParam is WM_LBUTTONDOWN or WM_RBUTTONDOWN && ButtonDown is { } pressed)
+        {
+            try
+            {
+                // MSLLHOOKSTRUCT starts with the point
+                var x = Marshal.ReadInt32(lParam, 0);
+                var y = Marshal.ReadInt32(lParam, 4);
+                if (_syncCtx != null)
+                    _syncCtx.Post(_ => pressed(x, y), null);
+                else
+                    pressed(x, y);
             }
             catch { /* never block the input thread */ }
         }
