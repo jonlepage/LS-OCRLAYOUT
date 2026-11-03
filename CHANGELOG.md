@@ -3,6 +3,7 @@
 ## 1.7.3
 
 - Fixed: searching a Japanese or Chinese word of several characters (日本語) found nothing — only single characters were found. Now the exact word lights up.
+- Fixed: the screen search could close by itself a few seconds after opening.
 
 ## 1.7.2
 
