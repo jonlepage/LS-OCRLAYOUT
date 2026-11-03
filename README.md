@@ -1,6 +1,6 @@
 # Assistance overlay
 
-💬 [Join the Discord](https://discord.gg/RjngzA3FaG)
+[![Discord](https://img.shields.io/badge/Discord-Join%20the%20server-5865F2?logo=discord&logoColor=white)](https://discord.gg/RjngzA3FaG)
 
 Lost in a complex app? Ask your AI agent (Claude Code, Cursor…) "where do I click?": it looks at the app's window and circles the spot on your real screen, in any app.
 
