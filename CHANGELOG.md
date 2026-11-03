@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.3
+
+- Fixed: searching a Japanese or Chinese word of several characters (日本語) found nothing — only single characters were found. Now the exact word lights up.
+
 ## 1.7.2
 
 - **Text history list**: the clock icon above the text (or **Ctrl+H**) lists all of a prompt's texts at once. Type to search — the matching words are highlighted — then click one, or pick it with `↑` / `↓` and **Enter**.

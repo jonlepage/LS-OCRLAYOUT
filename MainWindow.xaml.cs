@@ -157,4 +157,10 @@ internal class OcrWordInfo
 {
     public required string Text { get; init; }
     public Rect Bounds { get; init; }
+    // Words written without a space between them, glued back together (see
+    // OcrLineBuilder.BuildSearchWords): where each OCR word, often a single
+    // character, sits in Text and on screen. Null for a word read alone.
+    public IReadOnlyList<OcrPiece>? Pieces { get; init; }
 }
+
+internal readonly record struct OcrPiece(int Start, int Length, Rect Bounds);

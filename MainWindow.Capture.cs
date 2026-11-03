@@ -204,62 +204,39 @@ public partial class MainWindow : Window
         var languages = app.SelectedOcrLanguages;
 
         // Run OCR for each selected language in parallel
-        var tasks = new List<Task<OcrResult>>();
-        var isCjkEngine = new List<bool>();
+        var engines = new List<(OcrEngine Engine, bool IsCjk)>();
         foreach (var lang in languages)
         {
             var engine = OcrEngine.TryCreateFromLanguage(lang);
             if (engine != null)
-            {
-                tasks.Add(engine.RecognizeAsync(softwareBitmap).AsTask());
-                isCjkEngine.Add(OcrLineBuilder.IsCjkLanguage(lang));
-            }
+                engines.Add((engine, OcrLineBuilder.IsCjkLanguage(lang)));
         }
 
-        if (tasks.Count == 0) return;
+        if (engines.Count == 0) return;
 
-        var results = await Task.WhenAll(tasks);
+        // An engine can fail (COMException E_FAIL, seen with several engines
+        // reading the same bitmap): that failure used to close the whole app
+        // a few seconds after the overlay opened. A failed engine is retried
+        // once on its own, then left out; the others' words still show.
+        var results = await Task.WhenAll(engines.Select(e => TryRecognizeAsync(e.Engine, softwareBitmap)));
+        for (int i = 0; i < results.Length; i++)
+            results[i] ??= await TryRecognizeAsync(engines[i].Engine, softwareBitmap);
 
-        // Merge results from all languages, deduplicate by position
-        foreach (var result in results)
-        {
-            foreach (var line in result.Lines)
-            {
-                foreach (var word in line.Words)
-                {
-                    var bounds = new Rect(
-                        word.BoundingRect.X * scaleX,
-                        word.BoundingRect.Y * scaleY,
-                        word.BoundingRect.Width * scaleX,
-                        word.BoundingRect.Height * scaleY);
+        var readings = results
+            .Select((result, i) => (result, engines[i].IsCjk))
+            .Where(r => r.result is not null)
+            .Select(r => (r.result!, r.IsCjk))
+            .ToList();
 
-                    // Skip if we already have a word at roughly the same position
-                    bool duplicate = false;
-                    foreach (var existing in _ocrWords)
-                    {
-                        if (Math.Abs(existing.Bounds.X - bounds.X) < 5 &&
-                            Math.Abs(existing.Bounds.Y - bounds.Y) < 5)
-                        {
-                            duplicate = true;
-                            break;
-                        }
-                    }
+        // Words feed the search, lines the translation: both keep one reading
+        // per line among the languages, see OcrLineBuilder
+        _ocrWords.AddRange(OcrLineBuilder.BuildSearchWords(readings, scaleX, scaleY));
+        _ocrLines.AddRange(OcrLineBuilder.Build(readings, scaleX, scaleY));
+    }
 
-                    if (!duplicate)
-                    {
-                        _ocrWords.Add(new OcrWordInfo
-                        {
-                            Text = word.Text,
-                            Bounds = bounds
-                        });
-                    }
-                }
-            }
-        }
-
-        // Lines feed the translation: see OcrLineBuilder
-        _ocrLines.AddRange(OcrLineBuilder.Build(
-            results.Select((result, i) => (result, isCjkEngine[i])).ToList(),
-            scaleX, scaleY));
+    private static async Task<OcrResult?> TryRecognizeAsync(OcrEngine engine, Windows.Graphics.Imaging.SoftwareBitmap bitmap)
+    {
+        try { return await engine.RecognizeAsync(bitmap); }
+        catch (Exception) { return null; }
     }
 }

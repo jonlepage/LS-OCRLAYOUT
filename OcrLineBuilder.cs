@@ -14,7 +14,8 @@ internal class OcrLineInfo
 // Turns the raw OCR results (one per enabled language) into translation
 // units: one entry per visual line, keeping the most plausible reading when
 // several engines read the same spot, with CJK text glued back together and
-// the lines the OCR cut in two joined again.
+// the lines the OCR cut in two joined again. The search words come from the
+// same readings (BuildSearchWords).
 //
 // No UI dependency, so it can be exercised on a plain screenshot outside
 // the app.
@@ -55,6 +56,150 @@ internal static class OcrLineBuilder
         JoinRowFragments(lines);
         return lines;
     }
+
+    // The search looks for the query inside one word at a time, and the CJK
+    // engines return every character as its own word: "日本語" fitted in no
+    // word and was never found. The search words are therefore made like the
+    // translation lines: one reading per line among the languages, the lines
+    // the OCR cut in two joined again, the known misreadings fixed, and the
+    // runs of Japanese or Chinese characters glued back into one word that
+    // remembers where each character sits, so a match lights up exactly the
+    // characters found. Latin words stay one word each, as before.
+    internal static List<OcrWordInfo> BuildSearchWords(
+        IReadOnlyList<(OcrResult Result, bool IsCjkEngine)> results, double scaleX, double scaleY)
+    {
+        // Same choice as Build: Latin engines first, a CJK reading takes a
+        // line over only where it actually read CJK
+        var chosen = new List<(OcrLineInfo Info, List<OcrLine> Lines)>();
+        for (int pass = 0; pass < 2; pass++)
+        {
+            foreach (var (result, isCjkEngine) in results)
+            {
+                if (isCjkEngine != (pass == 1)) continue;
+                foreach (var line in result.Lines)
+                {
+                    if (ToLineInfo(line, scaleX, scaleY) is not { } info) continue;
+                    var at = chosen.FindIndex(c => MostlyOverlaps(c.Info.Bounds, info.Bounds));
+                    if (at < 0)
+                        chosen.Add((info, [line]));
+                    else if (ScriptScore(info.Text) > ScriptScore(chosen[at].Info.Text))
+                        chosen[at] = (info, [line]);
+                }
+            }
+        }
+
+        // Same joins as JoinRowFragments ("…小規模なゲ" + "ームを…"), keeping
+        // the reading order of the lines: it is the order "Copy all" uses
+        for (int i = 0; i < chosen.Count; i++)
+        {
+            for (int j = 0; j < chosen.Count; j++)
+            {
+                if (j == i || !AreRowFragments(chosen[i].Info, chosen[j].Info)) continue;
+
+                chosen[i] = (new OcrLineInfo
+                {
+                    Text = chosen[i].Info.Text + chosen[j].Info.Text,
+                    Bounds = Rect.Union(chosen[i].Info.Bounds, chosen[j].Info.Bounds)
+                }, [.. chosen[i].Lines, .. chosen[j].Lines]);
+                chosen.RemoveAt(j);
+                if (j < i) i--;
+                j = -1; // the longer line may now reach one more fragment
+            }
+        }
+
+        var words = new List<OcrWordInfo>();
+        foreach (var (_, lines) in chosen)
+            AddSearchWords(ReadWords(lines.SelectMany(l => l.Words), scaleX, scaleY), words);
+        return words;
+    }
+
+    // The words of a line in screen pixels, with the misreadings Build fixes
+    // fixed here too, also when the OCR made the stray "。" a word of its own.
+    private static List<(string Text, Rect Bounds)> ReadWords(IEnumerable<OcrWord> ocrWords, double scaleX, double scaleY)
+    {
+        var read = new List<(string Text, Rect Bounds)>();
+        foreach (var word in ocrWords)
+        {
+            if (string.IsNullOrEmpty(word.Text)) continue;
+            var r = word.BoundingRect;
+            var text = MisreadLatinO.Replace(word.Text, "o");
+            text = MisreadHandakuten.Replace(text, m => ((char)(m.Groups[1].Value[0] + 2)).ToString());
+            read.Add((text, new Rect(r.X * scaleX, r.Y * scaleY, r.Width * scaleX, r.Height * scaleY)));
+        }
+
+        for (int i = 1; i + 1 < read.Count; i++)
+        {
+            var (before, mark, after) = (read[i - 1], read[i], read[i + 1]);
+            if (mark.Text.Length != 1) continue;
+
+            // "G" "。" "d" → "God": the Latin "o" read as a full stop
+            if ("。〇○".Contains(mark.Text[0]) && IsLatinLetter(before.Text[^1]) && IsLatinLetter(after.Text[0]))
+            {
+                read[i - 1] = (before.Text + "o" + after.Text, Rect.Union(Rect.Union(before.Bounds, mark.Bounds), after.Bounds));
+                read.RemoveRange(i, 2);
+                i--;
+            }
+            // "ヒ" "。" "ッ" → "ピ" "ッ": the handakuten read as a full stop
+            else if (mark.Text[0] == '。' && "ハヒフヘホ".Contains(before.Text[^1]) && IsKatakana(after.Text[0]))
+            {
+                read[i - 1] = (before.Text[..^1] + (char)(before.Text[^1] + 2), Rect.Union(before.Bounds, mark.Bounds));
+                read.RemoveAt(i);
+                i--;
+            }
+        }
+        return read;
+    }
+
+    // Glues the words written without a space between them into one search
+    // word (see Glues). Latin words, spaced, stay one word each.
+    private static void AddSearchWords(List<(string Text, Rect Bounds)> read, List<OcrWordInfo> words)
+    {
+        var text = new StringBuilder();
+        var pieces = new List<OcrPiece>();
+
+        void Flush()
+        {
+            if (pieces.Count == 0) return;
+            var bounds = pieces[0].Bounds;
+            foreach (var piece in pieces)
+                bounds = Rect.Union(bounds, piece.Bounds);
+            words.Add(new OcrWordInfo
+            {
+                Text = text.ToString(),
+                Bounds = bounds,
+                Pieces = pieces.Count > 1 ? pieces.ToArray() : null,
+            });
+            text.Clear();
+            pieces.Clear();
+        }
+
+        for (int i = 0; i < read.Count; i++)
+        {
+            if (i > 0 && !Glues(read[i - 1], read[i]))
+                Flush();
+            pieces.Add(new OcrPiece(text.Length, read[i].Text.Length, read[i].Bounds));
+            text.Append(read[i].Text);
+        }
+        Flush();
+    }
+
+    // No space between two words, whatever the language: both sides of the
+    // joint are a script written without spaces ("日" + "本"), or two single
+    // characters sitting closer than a space would put them — an engine that
+    // returns one character per word, in any script, gets its words back.
+    // Measured both ways, for the scripts written right to left.
+    private static bool Glues((string Text, Rect Bounds) left, (string Text, Rect Bounds) right)
+    {
+        if (IsUnspaced(left.Text[^1]) && IsUnspaced(right.Text[0])) return true;
+        if (left.Text.Length != 1 || right.Text.Length != 1) return false;
+        var gap = Math.Max(right.Bounds.Left - left.Bounds.Right, left.Bounds.Left - right.Bounds.Right);
+        return gap < 0.25 * Math.Max(left.Bounds.Height, right.Bounds.Height);
+    }
+
+    private static bool IsLatinLetter(char c) => c is >= 'A' and <= 'Z' or >= 'a' and <= 'z';
+
+    // The katakana MisreadHandakuten accepts after the full stop: ァ to ヺ, and "ー"
+    private static bool IsKatakana(char c) => c is >= 'ァ' and <= 'ヺ' or 'ー';
 
     internal static bool IsCjkLanguage(Windows.Globalization.Language lang)
     {

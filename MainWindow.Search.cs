@@ -45,32 +45,25 @@ public partial class MainWindow : Window
         var (fill, stroke, thickness, padX, padY) = GetHighlightStyle();
 
         int matchCount = 0;
-        foreach (var word in _ocrWords)
+        foreach (var (matchText, bounds) in FindMatches(query, compiledRegex))
         {
-            bool isMatch = compiledRegex != null
-                ? compiledRegex.IsMatch(word.Text)
-                : word.Text.Contains(query, StringComparison.OrdinalIgnoreCase);
-
-            if (isMatch)
+            var rect = new System.Windows.Shapes.Rectangle
             {
-                var rect = new System.Windows.Shapes.Rectangle
-                {
-                    Width = word.Bounds.Width + padX,
-                    Height = word.Bounds.Height + padY,
-                    Fill = fill,
-                    Stroke = stroke,
-                    StrokeThickness = thickness,
-                    Opacity = 0,
-                    Tag = word.Text,
-                    Cursor = System.Windows.Input.Cursors.Hand,
-                };
-                rect.MouseLeftButtonDown += Rect_Click;
-                Canvas.SetLeft(rect, word.Bounds.X - padX / 2.0);
-                Canvas.SetTop(rect, word.Bounds.Y - padY / 2.0);
-                HighlightCanvas.Children.Add(rect);
-                rect.BeginAnimation(OpacityProperty, fadeIn);
-                matchCount++;
-            }
+                Width = bounds.Width + padX,
+                Height = bounds.Height + padY,
+                Fill = fill,
+                Stroke = stroke,
+                StrokeThickness = thickness,
+                Opacity = 0,
+                Tag = matchText,
+                Cursor = System.Windows.Input.Cursors.Hand,
+            };
+            rect.MouseLeftButtonDown += Rect_Click;
+            Canvas.SetLeft(rect, bounds.X - padX / 2.0);
+            Canvas.SetTop(rect, bounds.Y - padY / 2.0);
+            HighlightCanvas.Children.Add(rect);
+            rect.BeginAnimation(OpacityProperty, fadeIn);
+            matchCount++;
         }
 
         BottomCountLabel.Foreground = new SolidColorBrush(
@@ -241,12 +234,62 @@ public partial class MainWindow : Window
             catch { return []; }
         }
 
-        return _ocrWords
-            .Where(w => compiledRegex != null
-                ? compiledRegex.IsMatch(w.Text)
-                : w.Text.Contains(query, StringComparison.OrdinalIgnoreCase))
-            .Select(w => w.Text)
-            .ToList();
+        return FindMatches(query, compiledRegex).Select(m => m.Text).ToList();
+    }
+
+    // One highlight per match. A word read alone lights up whole, and its
+    // click copies all of it (a full e-mail address from "gmail"); inside a
+    // run of Japanese or Chinese, only the characters found.
+    private List<(string Text, Rect Bounds)> FindMatches(string query, Regex? regex)
+    {
+        var matches = new List<(string Text, Rect Bounds)>();
+        foreach (var word in _ocrWords)
+        {
+            if (word.Pieces is not { } pieces)
+            {
+                bool isMatch = regex != null
+                    ? regex.IsMatch(word.Text)
+                    : word.Text.Contains(query, StringComparison.OrdinalIgnoreCase);
+                if (isMatch) matches.Add((word.Text, word.Bounds));
+                continue;
+            }
+
+            foreach (var (start, length) in Occurrences(word.Text, query, regex))
+            {
+                int first = -1, last = -1;
+                for (int i = 0; i < pieces.Count; i++)
+                {
+                    if (pieces[i].Start >= start + length || pieces[i].Start + pieces[i].Length <= start) continue;
+                    if (first < 0) first = i;
+                    last = i;
+                }
+                if (first < 0) continue;
+
+                var bounds = pieces[first].Bounds;
+                for (int i = first + 1; i <= last; i++)
+                    bounds = Rect.Union(bounds, pieces[i].Bounds);
+                // Two finds inside the same piece: one highlight
+                if (matches.Count > 0 && matches[^1].Bounds == bounds) continue;
+
+                var from = pieces[first].Start;
+                matches.Add((word.Text[from..(pieces[last].Start + pieces[last].Length)], bounds));
+            }
+        }
+        return matches;
+    }
+
+    private static IEnumerable<(int Start, int Length)> Occurrences(string text, string query, Regex? regex)
+    {
+        if (regex != null)
+        {
+            foreach (Match match in regex.Matches(text))
+                if (match.Length > 0) yield return (match.Index, match.Length);
+            yield break;
+        }
+
+        for (int at = text.IndexOf(query, StringComparison.OrdinalIgnoreCase); at >= 0;
+             at = text.IndexOf(query, at + query.Length, StringComparison.OrdinalIgnoreCase))
+            yield return (at, query.Length);
     }
 
     private (SolidColorBrush fill, SolidColorBrush stroke, double thickness, int padX, int padY) GetHighlightStyle()
