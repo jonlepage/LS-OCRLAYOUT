@@ -1,5 +1,7 @@
 # Assistance overlay
 
+💬 [Join the Discord](https://discord.gg/RjngzA3FaG)
+
 Lost in a complex app? Ask your AI agent (Claude Code, Cursor…) "where do I click?": it looks at the app's window and circles the spot on your real screen, in any app.
 
 [![The assistance overlay guiding a user in Blender](guide.gif)](https://github.com/jonlepage/LS-OCRLAYOUT/raw/main/LSOCR-guide.mp4)
