@@ -14,6 +14,7 @@
         FontFamily="Segoe UI"
         FontSize="13"
         PreviewKeyDown="Window_PreviewKeyDown"
+        PreviewMouseDown="Window_PreviewMouseDown"
         Closing="Window_Closing">
 
     <!-- NOT AllowsTransparency: a layered window is read back from the GPU
@@ -703,6 +704,102 @@
             </DataTemplate.Triggers>
         </DataTemplate>
 
+        <!-- ── Text history list (PromptWindow.HistoryList) ── -->
+        <!-- Rows never take the focus: it stays in the search box, whose
+             ↑ / ↓ move the cursor (the selection). A click picks. -->
+        <Style x:Key="HistoryItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Grid Margin="0,1">
+                            <Border x:Name="Bd" Background="Transparent" Padding="10,7,10,7">
+                                <ContentPresenter HorizontalAlignment="Stretch" />
+                            </Border>
+                            <Border x:Name="Bar"
+                                    Width="3"
+                                    Background="{DynamicResource AccentSoft}"
+                                    HorizontalAlignment="Left"
+                                    Visibility="Hidden" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource MenuHoverBg}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource MenuHoverBg}" />
+                                <Setter TargetName="Bar" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Its number (1 = the newest, as in the header's counter), two lines
+             of the text, its length; ✓ on the text the box holds. Hovered: a
+             longer look, beside the list. -->
+        <DataTemplate x:Key="HistoryItemTemplate" DataType="{x:Type local:HistoryRow}">
+            <Grid Background="Transparent"
+                  ToolTipService.Placement="Left"
+                  ToolTipService.HorizontalOffset="-8"
+                  ToolTipService.InitialShowDelay="600"
+                  ToolTipService.ShowDuration="60000">
+                <Grid.ToolTip>
+                    <TextBlock local:Highlight.Pieces="{Binding Tip}" TextWrapping="Wrap" MaxWidth="520" />
+                </Grid.ToolTip>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="30" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="Number"
+                           Text="{Binding Number}"
+                           FontSize="11.5"
+                           Foreground="{DynamicResource TextMuted}"
+                           VerticalAlignment="Top"
+                           Margin="0,1,0,0" />
+                <TextBlock x:Name="DraftIcon"
+                           Text="&#xE70F;"
+                           FontFamily="{StaticResource IconFont}"
+                           FontSize="11"
+                           Foreground="{DynamicResource TextMuted}"
+                           VerticalAlignment="Top"
+                           Margin="0,3,0,0"
+                           Visibility="Collapsed" />
+                <StackPanel Grid.Column="1">
+                    <TextBlock local:Highlight.Pieces="{Binding Preview}"
+                               TextWrapping="Wrap"
+                               TextTrimming="CharacterEllipsis"
+                               LineStackingStrategy="BlockLineHeight"
+                               LineHeight="18"
+                               MaxHeight="36" />
+                    <TextBlock Text="{Binding Meta}"
+                               FontSize="11.5"
+                               Foreground="{DynamicResource TextMuted}"
+                               Margin="0,3,0,0" />
+                </StackPanel>
+                <TextBlock Grid.Column="2"
+                           Text="&#xE73E;"
+                           FontFamily="{StaticResource IconFont}"
+                           FontSize="12"
+                           Foreground="{DynamicResource AccentSoft}"
+                           VerticalAlignment="Top"
+                           Margin="10,3,0,0"
+                           Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVisibility}}" />
+            </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsDraft}" Value="True">
+                    <Setter TargetName="Number" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="DraftIcon" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
         <Style x:Key="SectionLabel" TargetType="TextBlock">
             <Setter Property="FontSize" Value="11" />
             <Setter Property="FontWeight" Value="SemiBold" />
@@ -721,7 +818,7 @@
             BorderBrush="{DynamicResource OuterBorder}"
             BorderThickness="1"
             TextElement.Foreground="{DynamicResource TextPrimary}">
-        <Grid>
+        <Grid x:Name="RootGrid">
             <Grid.RowDefinitions>
                 <RowDefinition Height="48" />
                 <RowDefinition Height="*" />
@@ -1324,6 +1421,14 @@
                                             Content="&#xE70D;"
                                             ToolTip="{DynamicResource pb.tip.historyNewer}"
                                             Click="NewerText_Click" />
+                                    <!-- All the texts at once (PromptWindow.HistoryList). -->
+                                    <Button x:Name="HistoryListButton"
+                                            Style="{StaticResource HistoryButton}"
+                                            Margin="4,0,0,0"
+                                            FontSize="12"
+                                            Content="&#xE81C;"
+                                            ToolTip="{DynamicResource pb.tip.historyList}"
+                                            Click="HistoryList_Click" />
                                 </StackPanel>
                             </StackPanel>
                         </Grid>
@@ -1410,6 +1515,63 @@
                             </StackPanel>
                         </Button>
                     </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ── Text history list (PromptWindow.HistoryList) ── -->
+            <!-- In the window, not a Popup: a popup closes at the first click
+                 outside it, on-screen keyboards included. OpenHistoryList puts
+                 it under the icon, its right edge on the text box's; it goes
+                 down to the window's bottom at most. -->
+            <Border x:Name="HistoryCard"
+                    Grid.RowSpan="3"
+                    Width="460"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Background="{DynamicResource PopupBg}"
+                    BorderBrush="{DynamicResource PopupBorder}"
+                    BorderThickness="1"
+                    Padding="6"
+                    Visibility="Collapsed">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Border Style="{StaticResource SearchField}" Margin="0,0,0,6">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="&#xE721;"
+                                       FontFamily="{StaticResource IconFont}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextMuted}"
+                                       VerticalAlignment="Center"
+                                       Margin="10,0,0,0" />
+                            <TextBox x:Name="HistoryFilter"
+                                     Grid.Column="1"
+                                     Style="{StaticResource BareTextBox}"
+                                     Tag="{DynamicResource pb.history.search}"
+                                     TextChanged="HistoryFilter_TextChanged" />
+                        </Grid>
+                    </Border>
+                    <ListBox x:Name="HistoryList"
+                             Grid.Row="1"
+                             MaxHeight="400"
+                             Focusable="False"
+                             Style="{StaticResource PromptListStyle}"
+                             ItemContainerStyle="{StaticResource HistoryItemStyle}"
+                             ItemTemplate="{StaticResource HistoryItemTemplate}"
+                             PreviewMouseLeftButtonUp="HistoryList_PreviewMouseLeftButtonUp" />
+                    <TextBlock x:Name="HistoryEmpty"
+                               Grid.Row="1"
+                               Text="{DynamicResource pb.history.noMatch}"
+                               Style="{StaticResource Hint}"
+                               HorizontalAlignment="Center"
+                               Margin="0,16"
+                               Visibility="Collapsed" />
                 </Grid>
             </Border>
 

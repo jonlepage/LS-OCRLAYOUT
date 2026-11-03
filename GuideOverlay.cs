@@ -21,7 +21,8 @@ namespace ScreenSearchOverlay;
 //   (the close button lives up there).
 // Both are left out of screen captures (Windows 10 2004+), so the agent's
 // next capture shows the app alone; on older systems they hide for it.
-// Like the search overlay, sized in screen pixels.
+// Like the search overlay, placed in screen pixels (ScreenPixels); the
+// marks turn those pixels into the layer's DIPs.
 internal sealed partial class GuideOverlay
 {
     private const double PanelMargin = 8;
@@ -46,16 +47,16 @@ internal sealed partial class GuideOverlay
     {
         Screen = screen;
         _marks = NewLayer(clickThrough: true);
-        _marks.Left = screen.X;
-        _marks.Top = screen.Y;
-        _marks.Width = screen.Width;
-        _marks.Height = screen.Height;
+        ScreenPixels.Cover(_marks, screen);
         _marks.Content = _canvas;
 
         _footer = new TextBlock { Foreground = Muted, FontSize = 11, TextWrapping = TextWrapping.Wrap };
         _panel = NewLayer(clickThrough: false);
         _panel.SizeToContent = SizeToContent.WidthAndHeight;
         _panel.Content = NewPanel(quit);
+        // On the guide's monitor before it sizes to its content, at that
+        // monitor's scale
+        _panel.SourceInitialized += (_, _) => ScreenPixels.MoveTo(_panel, screen.X, screen.Y);
         _panel.SizeChanged += (_, _) => PlacePanel();
 
         _marks.Show();
@@ -66,9 +67,11 @@ internal sealed partial class GuideOverlay
     // from the monitor's corner).
     internal void ShowStep(IReadOnlyList<string> steps, int current, GuidePoint mark)
     {
-        var ink = new GuideInk(_canvas, Screen.Width, Screen.Height);
+        var dpi = VisualTreeHelper.GetDpi(_marks);
+        var ink = new GuideInk(_canvas, Screen.Width / dpi.DpiScaleX, Screen.Height / dpi.DpiScaleY);
         ink.Clear();
-        _ring = GuideInk.RingAround(new Point(mark.X, mark.Y), mark.Width, mark.Height);
+        _ring = GuideInk.RingAround(new Point(mark.X / dpi.DpiScaleX, mark.Y / dpi.DpiScaleY),
+            mark.Width / dpi.DpiScaleX, mark.Height / dpi.DpiScaleY);
         ink.Spotlight([new EllipseGeometry(_ring)], StepDim);
         ink.Ring(_ring);
         if (mark.Label is { } label)
@@ -99,10 +102,16 @@ internal sealed partial class GuideOverlay
     }
 
     // Screen point (the mouse hook's) on the ring
-    internal bool HitsTarget(int x, int y) => !_ring.IsEmpty && _ring.Contains(new Point(x - Screen.X, y - Screen.Y));
+    internal bool HitsTarget(int x, int y) => !_ring.IsEmpty && RingOnScreen().Contains(new Point(x - Screen.X, y - Screen.Y));
 
-    internal bool IsOnPanel(int x, int y) =>
-        new Rect(_panel.Left, _panel.Top, _panel.ActualWidth, _panel.ActualHeight).Contains(new Point(x, y));
+    internal bool IsOnPanel(int x, int y) => ScreenPixels.Bounds(_panel).Contains(new Point(x, y));
+
+    // The ring in screen pixels from the monitor's corner
+    private Rect RingOnScreen()
+    {
+        var dpi = VisualTreeHelper.GetDpi(_marks);
+        return new Rect(_ring.X * dpi.DpiScaleX, _ring.Y * dpi.DpiScaleY, _ring.Width * dpi.DpiScaleX, _ring.Height * dpi.DpiScaleY);
+    }
 
     internal void SetVisible(bool visible)
     {
@@ -187,16 +196,19 @@ internal sealed partial class GuideOverlay
         };
     }
 
-    // Top-right, out of the way; top-left while the ring would be under it
+    // Top-right, out of the way; top-left while the ring would be under it.
+    // In screen pixels.
     private void PlacePanel()
     {
-        var width = _panel.ActualWidth;
-        var height = _panel.ActualHeight;
+        var dpi = VisualTreeHelper.GetDpi(_panel);
+        var width = _panel.ActualWidth * dpi.DpiScaleX;
+        var height = _panel.ActualHeight * dpi.DpiScaleY;
+        var marginX = PanelMargin * dpi.DpiScaleX;
+        var marginY = PanelMargin * dpi.DpiScaleY;
         // No ring between steps: stay put rather than jump
         if (!_ring.IsEmpty)
-            _panelOnLeft = _ring.IntersectsWith(new Rect(Screen.Width - PanelMargin - width, PanelMargin, width, height));
-        _panel.Left = Screen.X + (_panelOnLeft ? PanelMargin : Screen.Width - PanelMargin - width);
-        _panel.Top = Screen.Y + PanelMargin;
+            _panelOnLeft = RingOnScreen().IntersectsWith(new Rect(Screen.Width - marginX - width, marginY, width, height));
+        ScreenPixels.MoveTo(_panel, Screen.X + (_panelOnLeft ? marginX : Screen.Width - marginX - width), Screen.Y + marginY);
     }
 
     private Window NewLayer(bool clickThrough)

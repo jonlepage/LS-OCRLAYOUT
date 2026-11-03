@@ -17,6 +17,10 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- WinForms' ApplicationHighDpiMode only applies to a WinForms app's
+         startup; a WPF app takes its DPI mode from the manifest. -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>

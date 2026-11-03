@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.1
+
+- **Text history list**: the clock icon above the text (or **Ctrl+H**) lists all of a prompt's texts at once. Type to search — the matching words are highlighted — then click one, or pick it with `↑` / `↓` and **Enter**.
+- Fixed: with screens at different scales (a 4K TV at 175 % next to a monitor at 100 %), screenshots of the other screen came out mostly black — in the screen search, the Prompt Builder and the agent's guide.
+
 ## 1.7.0
 
 - **Show me where**: lost in an app your LLM agent (Claude Code, Cursor…) is walking you through? Ask "where do I click?" — it circles the spot on your real screen, in any app. Tick **⚙ > MCP server** to use it.

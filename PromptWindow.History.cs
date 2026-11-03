@@ -28,14 +28,19 @@ public partial class PromptWindow
         _historyEdits.Clear();
         _historyIndex = TextHistory.IndexOf(HistoryEntries, BodyBox.Text);
         _draft = _historyIndex < 0 ? BodyBox.Text : null;
+        // The list shows the walk as it was: it would pick from another.
+        CloseHistoryList();
         RefreshHistory();
     }
 
     // delta +1: an older text, -1: a newer one. false: nothing that way.
-    private bool StepHistory(int delta)
+    private bool StepHistory(int delta) => ShowHistoryEntry(_historyIndex + delta, fromTop: delta > 0);
+
+    // Straight to an entry (-1: the draft), as ↑ / ↓ would reach it. fromTop:
+    // the caret at the start of the text, else at its end.
+    private bool ShowHistoryEntry(int target, bool fromTop)
     {
         var entries = HistoryEntries;
-        var target = _historyIndex + delta;
         if (target < (_draft is null ? 0 : -1) || target >= entries.Count) return false;
 
         // What is left comes back as it was left.
@@ -47,7 +52,7 @@ public partial class PromptWindow
         BodyBox.Text = target < 0 ? _draft! : _historyEdits.GetValueOrDefault(target, entries[target]);
         // The caret on the edge the next press goes on from: the top going
         // back, the bottom coming forward.
-        if (delta > 0)
+        if (fromTop)
         {
             BodyBox.CaretIndex = 0;
             BodyBox.ScrollToHome();

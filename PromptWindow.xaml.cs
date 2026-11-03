@@ -851,6 +851,32 @@ public partial class PromptWindow : Window
             return;
         }
 
+        // The history list is a menu: its keys, the rest typed in its search
+        // (Ctrl+Enter would send, Ctrl+1 change the prompt under it).
+        if (HistoryListOpen)
+        {
+            switch (key)
+            {
+                case Key.Escape when none:
+                case Key.H when ctrl:
+                    CloseHistoryList();
+                    break;
+                case Key.Up when none:
+                    MoveHistoryCursor(-1);
+                    break;
+                case Key.Down when none:
+                    MoveHistoryCursor(+1);
+                    break;
+                case Key.Enter when none:
+                    PickHistory(HistoryList.SelectedItem as HistoryRow);
+                    break;
+                default:
+                    return;
+            }
+            e.Handled = true;
+            return;
+        }
+
         switch (key)
         {
             case Key.Escape when none && SettingsPopup.IsOpen:
@@ -873,6 +899,9 @@ public partial class PromptWindow : Window
             case Key.F when ctrl:
                 SearchBox.Focus();
                 SearchBox.SelectAll();
+                break;
+            case Key.H when ctrl:
+                OpenHistoryList();
                 break;
             case >= Key.D1 and <= Key.D9 when ctrl:
                 SelectNth(key - Key.D1);
@@ -978,6 +1007,7 @@ public partial class PromptWindow : Window
     {
         e.Cancel = true;
         SettingsPopup.IsOpen = false;
+        CloseHistoryList();
         McpDialog.Visibility = Visibility.Collapsed;
 
         // "Nouveau prompt" then nothing typed: not worth keeping.
@@ -1019,16 +1049,21 @@ public partial class PromptWindow : Window
 
     // Shown on the monitor the user is working on, not where it was last
     // hidden. Physical pixels end to end, so mixed-DPI setups stay right.
+    // Landing on a monitor of another scale resizes the window for it: the
+    // second pass centers it again at its new size.
     private void CenterOnCursorScreen()
     {
         var hwnd = new WindowInteropHelper(this).EnsureHandle();
-        if (!GetWindowRect(hwnd, out var rect)) return;
         var area = Forms.Screen.FromPoint(Forms.Cursor.Position).WorkingArea;
-        var width = rect.Right - rect.Left;
-        var height = rect.Bottom - rect.Top;
-        SetWindowPos(hwnd, IntPtr.Zero,
-            area.Left + (area.Width - width) / 2, area.Top + (area.Height - height) / 2,
-            0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+        for (var i = 0; i < 2; i++)
+        {
+            if (!GetWindowRect(hwnd, out var rect)) return;
+            var width = rect.Right - rect.Left;
+            var height = rect.Bottom - rect.Top;
+            SetWindowPos(hwnd, IntPtr.Zero,
+                area.Left + (area.Width - width) / 2, area.Top + (area.Height - height) / 2,
+                0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+        }
     }
 
     private const int GWL_STYLE = -16;

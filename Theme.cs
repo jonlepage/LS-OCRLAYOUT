@@ -67,6 +67,8 @@ internal static class Theme
             ["StatusSuccess"] = "#4ADE80",
             ["StatusWarning"] = "#FACC15",
             ["StatusError"] = "#F47174",
+            ["SearchHitBg"] = "#665012",
+            ["SearchHitText"] = "#FFF6D6",
         },
         [Light] = new()
         {
@@ -109,6 +111,8 @@ internal static class Theme
             ["StatusSuccess"] = "#15803D",
             ["StatusWarning"] = "#B45309",
             ["StatusError"] = "#C93B3B",
+            ["SearchHitBg"] = "#FBE38E",
+            ["SearchHitText"] = "#2A2B2E",
         },
         [NightDev] = new()
         {
@@ -151,6 +155,8 @@ internal static class Theme
             ["StatusSuccess"] = "#4ADE80",
             ["StatusWarning"] = "#FDBA74",
             ["StatusError"] = "#FB7185",
+            ["SearchHitBg"] = "#6B2A70",
+            ["SearchHitText"] = "#FDF4FF",
         },
         [VsCode] = new()
         {
@@ -193,6 +199,8 @@ internal static class Theme
             ["StatusSuccess"] = "#89D185",
             ["StatusWarning"] = "#CCA700",
             ["StatusError"] = "#F14C4C",
+            ["SearchHitBg"] = "#6A3A12",
+            ["SearchHitText"] = "#FFFFFF",
         },
     };
 

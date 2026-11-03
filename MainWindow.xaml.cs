@@ -56,11 +56,9 @@ public partial class MainWindow : Window
 
         InitializeComponent();
 
-        // Position window and set image before showing
-        Left = screenInfo.X;
-        Top = screenInfo.Y;
-        Width = screenInfo.Width;
-        Height = screenInfo.Height;
+        // Over the monitor, in its pixels: the content scales to the window
+        // (Stretch, ActualWidth), whatever the monitor's scale
+        ScreenPixels.Cover(this, screenInfo);
 
         // Allocate the WriteableBitmap once at the screen dimensions; every
         // future refresh writes pixels into the same backing buffer.
