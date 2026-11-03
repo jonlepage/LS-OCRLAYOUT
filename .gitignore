@@ -23,3 +23,6 @@ signing/
 .env
 sign.ps1
 build.ps1
+
+# Demo videos of each version (journal, plan, voices, videos): made in ../LSDE-Showcase, never versioned here
+.changes/
