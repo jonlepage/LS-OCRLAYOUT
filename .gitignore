@@ -26,3 +26,4 @@ build.ps1
 
 # Demo videos of each version (journal, plan, voices, videos): made in ../LSDE-Showcase, never versioned here
 .changes/
+.claude/skills/changelog-to-video/SKILL.md
